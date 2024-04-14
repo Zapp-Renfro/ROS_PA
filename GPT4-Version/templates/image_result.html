@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Images Générées</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .image-container {
+            display: flex;
+            flex-direction: row;
+            justify-content: center;
+            gap: 10px;
+        }
+        .image-container img {
+            max-width: 200px;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Images Générées</h1>
+        <div class="image-container">
+            {% for image_url in image_urls %}
+                <img src="{{ image_url }}" alt="Generated Image">
+            {% endfor %}
+        </div>
+        <a href="/">Retour</a>
+    </div>
+</body>
+</html>

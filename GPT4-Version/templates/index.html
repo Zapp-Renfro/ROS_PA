@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Générateur de Texte GPT</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='index.css') }}">
+
+</head>
+<body>
+    <h1>Générateur de Texte GPT</h1>
+    <form action="/" method="post">
+        <label for="prompt">Prompt:</label>
+        <input type="text" id="prompt" name="prompt"><br><br>
+        <input type="submit" value="Générer">
+    </form>
+</body>
+</html>

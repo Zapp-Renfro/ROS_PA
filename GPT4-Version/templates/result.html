@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Résultat de Génération</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Résultat</h1>
+        <div class="prompt">{{ response|safe }}</div>
+
+        <!-- Formulaire pour générer les images à partir des phrases -->
+        <form action="/generate_images" method="post">
+            <input type="hidden" name="text" value="{{ image_prompt|safe }}" />
+            <button type="submit">Générer Images</button>
+        </form>
+
+        <a href="/">Retour</a>
+    </div>
+</body>
+</html>
