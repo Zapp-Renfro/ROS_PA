@@ -4,6 +4,7 @@ import torch
 from diffusers import StableDiffusionPipeline
 from datetime import datetime
 import os
+from moviepy.editor import ImageSequenceClip
 
 app = Flask(__name__)
 
@@ -16,7 +17,7 @@ def format_response(chat_history):
             formatted_text += f"<b>Réponse:</b> {entry['content']}<br><br>"
     return formatted_text
 
-def generate_images(prompts):
+def generate_images_from_prompts(prompts):
     pipe = StableDiffusionPipeline.from_pretrained("CompVis/stable-diffusion-v1-4", safety_checker=None)
     pipe.enable_sequential_cpu_offload()
     pipe.enable_attention_slicing("max")
@@ -36,6 +37,14 @@ def generate_images(prompts):
 
     return filenames
 
+def create_video(image_folder, output_video, fps=1):
+    image_files = [os.path.join(image_folder, img) for img in sorted(os.listdir(image_folder)) if img.endswith(".png")]
+    if not image_files:
+        return None  # No images to create a video
+    clip = ImageSequenceClip(image_files, fps=fps)
+    clip.write_videofile(output_video, codec='libx264')
+    return output_video
+
 @app.route('/', methods=['GET', 'POST'])
 def generate_text():
     if request.method == 'POST':
@@ -54,9 +63,22 @@ def generate_text():
 def generate_images_route():
     text = request.form['text']
     prompts = [sentence.strip() for sentence in text.split('.') if sentence.strip()]
-    image_filenames = generate_images(prompts)
+    image_filenames = generate_images_from_prompts(prompts)
     image_urls = [url_for('static', filename='images/' + f) for f in image_filenames]
     return render_template('image_result.html', image_urls=image_urls)
+
+@app.route('/create_video', methods=['GET'])
+def create_video_route():
+    image_folder = 'static/images'
+    output_video = 'static/videos/output_video.mp4'
+    if not os.path.exists('static/videos'):
+        os.makedirs('static/videos')  # Crée le dossier s'il n'existe pas
+    video_creation = create_video(image_folder, output_video)
+    if video_creation:
+        video_url = url_for('static', filename='videos/output_video.mp4')
+        return render_template('video_result.html', video_url=video_url)
+    else:
+        return "No images available to create a video.", 404
 
 if __name__ == '__main__':
     app.run(debug=True)
