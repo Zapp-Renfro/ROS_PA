@@ -7,6 +7,7 @@ from moviepy.editor import ImageClip, TextClip, CompositeVideoClip, concatenate_
 from moviepy.editor import AudioFileClip
 from gtts import gTTS
 from moviepy.editor import CompositeAudioClip
+from pydub import AudioSegment
 
 app = Flask(__name__)
 
