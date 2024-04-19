@@ -25,8 +25,11 @@
             {% endfor %}
         </div>
 
-        <!-- Bouton pour générer la vidéo -->
+        <!-- Formulaire pour créer la vidéo -->
         <form action="/create_video" method="get">
+            {% for prompt in prompts %}
+                <input type="hidden" name="prompts" value="{{ prompt }}">
+            {% endfor %}
             <button type="submit">Créer Vidéo</button>
         </form>
 
