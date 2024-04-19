@@ -5,10 +5,14 @@ from datetime import datetime
 import os
 from moviepy.editor import ImageClip, TextClip, CompositeVideoClip, concatenate_videoclips
 from moviepy.editor import AudioFileClip
-
+from gtts import gTTS
+from moviepy.editor import CompositeAudioClip
 
 app = Flask(__name__)
 
+def text_to_speech(text, output_filename):
+    tts = gTTS(text=text, lang='en')  # Utilisez 'en' pour l'anglais ou autre selon la langue souhaitée
+    tts.save(output_filename)
 def format_response(chat_history):
     formatted_text = ""
     for entry in chat_history:
@@ -38,22 +42,40 @@ def generate_images_from_prompts(prompts):
 
     return filenames
 
+from moviepy.editor import AudioFileClip, concatenate_audioclips
+
 def create_video_with_text(image_folder, output_video, prompts, fps=1, audio_path='path_to_your_audio.mp3'):
     image_files = [os.path.join(image_folder, img) for img in sorted(os.listdir(image_folder)) if img.endswith(".png")]
-    clips = []
-    for img_file, prompt in zip(image_files, prompts):
-        img_clip = ImageClip(img_file).set_duration(3)
-        txt_clip = TextClip(prompt, fontsize=24, color='white', font='Arial').set_position(('center', 'center')).set_duration(3)
-        video = CompositeVideoClip([img_clip, txt_clip])
-        clips.append(video)
-    final_clip = concatenate_videoclips(clips, method="compose")
-    audio = AudioFileClip(audio_path).set_duration(final_clip.duration)
-    final_clip = final_clip.set_audio(audio)
-    final_clip.write_videofile(output_video, fps=fps, codec='libx264')
+    audio_clips = []
+    video_clips = []
 
-    # Déplacer les images utilisées une fois la vidéo créée
-    used_images_dir = os.path.join(os.path.dirname(image_folder), 'images_used')
-    move_used_images(image_folder, used_images_dir)
+    for img_file, prompt in zip(image_files, prompts):
+        # Synthèse vocale pour chaque prompt
+        audio_filename = f"{os.path.splitext(img_file)[0]}_audio.mp3"
+        text_to_speech(prompt, audio_filename)
+        speech_clip = AudioFileClip(audio_filename)
+
+        # Création du clip vidéo avec texte
+        img_clip = ImageClip(img_file).set_duration(speech_clip.duration)
+        txt_clip = TextClip(prompt, fontsize=24, color='white', font='Arial').set_position(('center', 'center')).set_duration(speech_clip.duration)
+        video = CompositeVideoClip([img_clip, txt_clip])
+        video = video.set_audio(speech_clip)
+        video_clips.append(video)
+        audio_clips.append(speech_clip)
+
+    # Concaténation des clips vidéo
+    final_video = concatenate_videoclips(video_clips, method="compose")
+
+    # Ajout de la musique de fond
+    background_music = AudioFileClip(audio_path).subclip(0, final_video.duration)  # Couper la musique à la durée de la vidéo
+    background_music = background_music.volumex(0.4)  # Réduire le volume de la musique de fond
+
+    # Fusionner la musique de fond avec les clips audio de la voix
+    final_audio = concatenate_audioclips(audio_clips)
+    final_audio = CompositeAudioClip([background_music, final_audio.set_duration(background_music.duration)])
+    final_video = final_video.set_audio(final_audio)
+
+    final_video.write_videofile(output_video, fps=fps, codec='libx264')
 
 
 def move_used_images(source_dir, target_dir):
