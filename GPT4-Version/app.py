@@ -117,7 +117,7 @@ def create_video_route():
     output_video = 'static/videos/output_video.mp4'
     if not os.path.exists('static/videos'):
         os.makedirs('static/videos')
-    create_video_with_text(image_folder, output_video, prompts, audio_path='static/music/gratitude-14382.mp3')
+    create_video_with_text(image_folder, output_video, prompts, audio_path='static/music/relaxing-piano-201831.mp3')
     video_url = url_for('static', filename='videos/output_video.mp4')
     return render_template('video_result.html', video_url=video_url)
 
