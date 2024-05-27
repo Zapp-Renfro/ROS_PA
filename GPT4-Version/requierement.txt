@@ -1,7 +1,7 @@
 pip install flask gpt4all
 pip install diffusers torch
-pyhton 3.10
-pip install transformers`
+python 3.10
+pip install transformers
 pip install accelerate
 pip install moviepy
 imagemagick download
