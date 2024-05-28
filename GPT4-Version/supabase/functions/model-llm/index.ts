@@ -1,36 +1,34 @@
-// Import the serve function from Supabase Edge Runtime
-import { serve } from 'https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts';
+// Assurez-vous que le modèle Mistral est téléchargé via Ollama
 
-// Create a new session for the 'gte-small' m
-const model = new Supabase.ai.Session('gte-small');
+Deno.serve(async (req: Request) => {
+  const params = new URL(req.url).searchParams;
+  const prompt = params.get('prompt') ?? 'WHAT IS LOVE ';
 
-// Define and export the service function
-serve(async (req: Request) => {
+  console.log(`Received prompt: ${prompt}`);
+
   try {
-    // Get the request parameters
-    const params = new URL(req.url).searchParams;
-    const input = params.get('input');
-
-    // Check if input is present
-    if (!input) {
-      return new Response(JSON.stringify({ error: 'Input is required' }), {
-        headers: { 'Content-Type': 'application/json' },
-        status: 400,
-      });
-    }
-
-    // Perform model inference with mean_pool and normalize options
-    const output = await model.run(input, { mean_pool: true, normalize: true });
-
-    // Return the inference result
-    return new Response(JSON.stringify(output), {
+    // Appeler l'API Ollama pour générer du texte
+    const response = await fetch('http://localhost:5000/generate', {
+      method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Connection': 'keep-alive',
       },
+      body: JSON.stringify({ model: 'mistral', prompt: prompt }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to generate text');
+    }
+
+    const data = await response.json();
+    const generatedText = data.text;
+    console.log(`Generated text: ${generatedText}`);
+
+    return new Response(generatedText, {
+      headers: { 'Content-Type': 'text/plain' },
     });
   } catch (error) {
-    // Handle errors
+    console.error('Error generating text:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { 'Content-Type': 'application/json' },
       status: 500,

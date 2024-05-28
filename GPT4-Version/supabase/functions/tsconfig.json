@@ -1,9 +1,14 @@
 {
   "compilerOptions": {
-    "lib": ["deno.ns", "dom"],
-    "types": ["https://deno.land/x/supabase/functions-js/src/edge-runtime.d.ts"],
+    "target": "ESNext",
+    "module": "ESNext",
+    "lib": ["ESNext", "DOM"],
+    "allowJs": true,
+    "outDir": "./dist",
     "strict": true,
     "esModuleInterop": true,
-    "skipLibCheck": true
-  }
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["./functions/**/*"]
 }

@@ -7,7 +7,9 @@ from moviepy.editor import ImageClip, TextClip, CompositeVideoClip, concatenate_
 from gtts import gTTS
 from supabase import create_client, Client
 import logging
+import requests
 
+HUGGINGFACE_API_TOKEN = "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"  # Remplacez
 # Initialisation de l'application Flask
 app = Flask(__name__)
 
@@ -90,21 +92,39 @@ def create_video_with_text(image_paths, output_video, prompts, fps=1, audio_path
     final_video.write_videofile(output_video, fps=fps, codec='libx264')
 
 
-
 @app.route('/', methods=['GET', 'POST'])
 def generate_text():
     if request.method == 'POST':
         prompt = request.form['prompt']
-        model = GPT4All(model_name='orca-mini-3b-gguf2-q4_0.gguf')
-        with model.chat_session():
-            response = model.generate(prompt=prompt)
-            chat_history = model.current_chat_session
-        formatted_response = format_response(chat_history)
-        last_response = chat_history[-1]['content'] if chat_history and chat_history[-1][
-            'role'] == 'assistant' else "Please generate a response first."
+
+        # Appel à l'API de Hugging Face avec le modèle gpt-neo-2.7B
+        API_URL = "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1"
+        API_TOKEN = "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"  # Remplacez par votre jeton API Hugging Face
+        headers = {"Authorization": f"Bearer {API_TOKEN}"}
+
+        # Log the request for debugging purposes
+        logging.debug(f"Sending request to Hugging Face API with prompt: {prompt}")
+
+        response = requests.post(API_URL, headers=headers, json={"inputs": prompt})
+
+        # Log the response status code and content for debugging purposes
+        logging.debug(f"Hugging Face API response status: {response.status_code}")
+        logging.debug(f"Hugging Face API response content: {response.content}")
+
+        if response.status_code != 200:
+            return jsonify({"error": "Failed to generate response from model"}), response.status_code
+
+        response_json = response.json()
+        logging.debug(f"Hugging Face API response JSON: {response_json}")
+
+        # Handling different possible response structures
+        if isinstance(response_json, list) and len(response_json) > 0 and 'generated_text' in response_json[0]:
+            generated_text = response_json[0]['generated_text']
+        else:
+            generated_text = 'No response'
 
         # Stocker dans Supabase
-        data = {"prompt": prompt, "response": last_response}
+        data = {"prompt": prompt, "response": generated_text}
         logging.debug(f"Data to insert into prompts: {data}")
         try:
             supabase.table('prompts').insert(data).execute()
@@ -112,7 +132,7 @@ def generate_text():
             logging.error(f"Error inserting data into prompts: {str(e)}")
             return jsonify({"error": str(e)}), 400
 
-        return render_template('result.html', response=formatted_response, image_prompt=last_response)
+        return render_template('result.html', response=generated_text, image_prompt=generated_text)
     else:
         return render_template('index.html')
 
@@ -159,14 +179,33 @@ def api_generate_text():
     if not prompt:
         return jsonify({"error": "Prompt is required"}), 400
 
-    model = GPT4All(model_name='orca-mini-3b-gguf2-q4_0.gguf')
-    with model.chat_session():
-        response = model.generate(prompt=prompt)
-        chat_history = model.current_chat_session
-    last_response = chat_history[-1]['content'] if chat_history and chat_history[-1][
-        'role'] == 'assistant' else "Please generate a response first."
+    # Appel à l'API de Hugging Face avec le modèle gpt-neo-2.7B
+    API_URL = "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1"
+    API_TOKEN = "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"  # Remplacez par votre jeton API Hugging Face
+    headers = {"Authorization": f"Bearer {API_TOKEN}"}
 
-    return jsonify({"response": last_response}), 200
+    # Log the request for debugging purposes
+    logging.debug(f"Sending request to Hugging Face API with prompt: {prompt}")
+
+    response = requests.post(API_URL, headers=headers, json={"inputs": prompt})
+
+    # Log the response status code and content for debugging purposes
+    logging.debug(f"Hugging Face API response status: {response.status_code}")
+    logging.debug(f"Hugging Face API response content: {response.content}")
+
+    if response.status_code != 200:
+        return jsonify({"error": "Failed to generate response from model"}), response.status_code
+
+    response_json = response.json()
+    logging.debug(f"Hugging Face API response JSON: {response_json}")
+
+    # Handling different possible response structures
+    if isinstance(response_json, list) and len(response_json) > 0 and 'generated_text' in response_json[0]:
+        generated_text = response_json[0]['generated_text']
+    else:
+        generated_text = 'No response'
+
+    return jsonify({"response": generated_text}), 200
 
 
 @app.route('/api/generate_images', methods=['POST'])
