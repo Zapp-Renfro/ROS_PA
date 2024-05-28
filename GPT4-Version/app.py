@@ -189,7 +189,6 @@ def api_generate_text():
 
     response = requests.post(API_URL, headers=headers, json={"inputs": prompt})
 
-    # Log the response status code and content for debugging purposes
     logging.debug(f"Hugging Face API response status: {response.status_code}")
     logging.debug(f"Hugging Face API response content: {response.content}")
 
