@@ -11,6 +11,7 @@ import base64
 from io import BytesIO
 from PIL import Image
 import random
+import shutil
 
 HUGGINGFACE_API_TOKEN = "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"  # Remplacez
 API_URL = "https://api-inference.huggingface.co/models/dataautogpt3/ProteusV0.4"
@@ -77,8 +78,13 @@ def create_video_with_text(image_paths, output_video, prompts, fps=1, audio_path
     audio_clips = []
     video_clips = []
 
+    # Créer un répertoire pour stocker les fichiers audio
+    audio_dir = os.path.join('static', 'audio')
+    if not os.path.exists(audio_dir):
+        os.makedirs(audio_dir)
+
     for img_file, prompt in zip(image_paths, prompts):
-        audio_filename = f"{os.path.splitext(img_file)[0]}_audio.mp3"
+        audio_filename = os.path.join(audio_dir, f"{os.path.splitext(os.path.basename(img_file))[0]}_audio.mp3")
         text_to_speech(prompt, audio_filename)
         speech_clip = AudioFileClip(audio_filename)
 
@@ -98,6 +104,18 @@ def create_video_with_text(image_paths, output_video, prompts, fps=1, audio_path
     final_video = final_video.set_audio(final_audio)
 
     final_video.write_videofile(output_video, fps=fps, codec='libx264')
+
+    # Déplacer les images utilisées dans le dossier images_used
+    used_images_dir = os.path.join('static', 'images_used')
+    if not os.path.exists(used_images_dir):
+        os.makedirs(used_images_dir)
+
+    for img_file in image_paths:
+        shutil.move(img_file, os.path.join(used_images_dir, os.path.basename(img_file)))
+
+    # Nettoyer les fichiers audio temporaires
+    for audio_file in os.listdir(audio_dir):
+        os.remove(os.path.join(audio_dir, audio_file))
 
 @app.route('/', methods=['GET', 'POST'])
 def generate_text():
@@ -201,7 +219,7 @@ def api_generate_text():
     response_json = response.json()
     logging.debug(f"Hugging Face API response JSON: {response_json}")
 
-    # Handling different possible response structures
+    # Handling different possible
     if isinstance(response_json, list) and len(response_json) > 0 and 'generated_text' in response_json[0]:
         generated_text = response_json[0]['generated_text']
     else:
