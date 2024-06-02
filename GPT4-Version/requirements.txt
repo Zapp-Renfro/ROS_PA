@@ -53,8 +53,9 @@ supabase==2.4.6
 supafunc==0.4.5
 sympy==1.12
 tokenizers==0.15.2
-torch==2.1.0  # Version compatible avec Python 3.11torchaudio==2.2.2+cu118
-torchvision==0.17.1  # Version compatible avec torch 2.1.0
+torch==2.1.0
+torchaudio==2.1.0  # Version compatible avec torch 2.1.0
+torchvision==0.16.0  # Version compatible avec torch 2.1.0
 tqdm==4.66.2
 transformers==4.39.3
 typing_extensions==4.11.0
