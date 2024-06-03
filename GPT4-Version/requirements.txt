@@ -54,11 +54,11 @@ supabase==2.4.6
 supafunc==0.4.5
 sympy==1.12
 tokenizers==0.15.2
-torch==2.1.0
-torchaudio==2.1.0
-torchvision==0.16.0
+torch==2.1.0+cpu
+torchaudio==2.1.0+cpu
+torchvision==0.16.0+cpu
 tqdm==4.66.2
-transformers==4.39.3
+#transformers==4.39.3
 typing_extensions==4.11.0
 urllib3==2.2.1
 websockets==12.0
