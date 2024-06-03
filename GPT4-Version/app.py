@@ -42,46 +42,73 @@ def format_response(chat_history):
             formatted_text += f"<b>Réponse:</b> {entry['content']}<br><br>"
     return formatted_text
 
+import time
+
 def generate_images_from_prompts(prompts):
     images_dir = os.path.join('static', 'images')
     if not os.path.exists(images_dir):
         os.makedirs(images_dir)
 
     filenames = []
+    max_retries = 5
+    base_retry_delay = 5  # seconds
+
     for prompt in prompts:
         headers = random.choice(HEADERS_LIST)
-        try:
-            logging.debug(f"Sending request to Hugging Face API with prompt: {prompt}")
-            response = requests.post(API_URL, headers=headers, json={"inputs": prompt})
-            logging.debug(f"Response status code: {response.status_code}")
-            response.raise_for_status()
+        for attempt in range(max_retries):
+            try:
+                logging.debug(f"Sending request to Hugging Face API with prompt: {prompt}")
+                response = requests.post(API_URL, headers=headers, json={"inputs": prompt})
+                logging.debug(f"Response status code: {response.status_code}")
+                response.raise_for_status()
 
-            # Vérifiez si la réponse est une image
-            if 'image' in response.headers['Content-Type']:
-                logging.debug("Response contains an image")
-                image_data = response.content
-                image = Image.open(BytesIO(image_data))
+                # Vérifiez si la réponse est une image
+                if 'image' in response.headers['Content-Type']:
+                    logging.debug("Response contains an image")
+                    image_data = response.content
+                    try:
+                        image = Image.open(BytesIO(image_data))
+                    except Exception as e:
+                        logging.error(f"Error opening image: {e}")
+                        continue
 
-                timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-                filename = f"image_{timestamp}.png"
-                filepath = os.path.join(images_dir, filename)
-                image.save(filepath)
-                filenames.append(filepath)
-                logging.debug(f"Saved image to {filepath}")
+                    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+                    filename = f"image_{timestamp}.png"
+                    filepath = os.path.join(images_dir, filename)
+                    try:
+                        image.save(filepath)
+                        filenames.append(filepath)
+                        logging.debug(f"Saved image to {filepath}")
+                    except Exception as e:
+                        logging.error(f"Error saving image: {e}")
+                        continue
 
-                # Stocker l'image dans Supabase
-                data = {"prompt_text": prompt, "filename": filename}
-                logging.debug(f"Data to insert into images: {data}")
-                supabase.table('images').insert(data).execute()
-            else:
-                logging.error(f"Response did not contain an image: {response.content}")
-
-        except requests.exceptions.HTTPError as err:
-            logging.error(f"HTTP error occurred: {err}")
-        except Exception as err:
-            logging.error(f"An error occurred: {err}")
+                    # Stocker l'image dans Supabase
+                    data = {"prompt_text": prompt, "filename": filename}
+                    logging.debug(f"Data to insert into images: {data}")
+                    try:
+                        supabase.table('images').insert(data).execute()
+                    except Exception as e:
+                        logging.error(f"Error inserting data into Supabase: {e}")
+                        continue
+                    break
+                else:
+                    logging.error(f"Response did not contain an image: {response.content}")
+            except requests.exceptions.HTTPError as err:
+                logging.error(f"HTTP error occurred: {err}")
+                if response.status_code == 503 and attempt < max_retries - 1:
+                    retry_delay = base_retry_delay * (2 ** attempt)  # Exponential backoff
+                    logging.debug(f"Retrying after {retry_delay} seconds due to 503 error...")
+                    time.sleep(retry_delay)
+                else:
+                    logging.error(f"Failed after {max_retries} attempts")
+                    break
+            except Exception as err:
+                logging.error(f"An error occurred: {err}")
+                break
 
     return filenames
+
 
 
 def create_video_with_text(image_paths, output_video, prompts, fps=1, audio_path='path_to_your_audio.mp3'):

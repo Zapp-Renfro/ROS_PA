@@ -7,11 +7,11 @@ API_URL = "https://api-inference.huggingface.co/models/dataautogpt3/ProteusV0.4"
 
 # Différents en-têtes avec des jetons d'authentification
 HEADERS1 = {"Authorization": "Bearer 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"}
-#HEADERS2 = {"Authorization": "Bearer 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"}
+HEADERS2 = {"Authorization": "Bearer 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"}
 # Ajoutez autant de HEADERS que nécessaire
 
 # Liste des en-têtes
-HEADERS_LIST = [HEADERS1]
+HEADERS_LIST = [HEADERS2]
 
 def get_image_from_api(prompt):
     # Sélectionner un en-tête aléatoire
@@ -35,5 +35,5 @@ def get_image_from_api(prompt):
         print(f"An error occurred: {err}")
 
 # Exemple d'utilisation
-prompt = "Le plus beau boss de jeu vidéo"
+prompt = "The most beautiful boss in video games"
 get_image_from_api(prompt)
