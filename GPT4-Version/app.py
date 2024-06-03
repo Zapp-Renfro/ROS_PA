@@ -51,28 +51,38 @@ def generate_images_from_prompts(prompts):
     for prompt in prompts:
         headers = random.choice(HEADERS_LIST)
         try:
+            logging.debug(f"Sending request to Hugging Face API with prompt: {prompt}")
             response = requests.post(API_URL, headers=headers, json={"inputs": prompt})
+            logging.debug(f"Response status code: {response.status_code}")
             response.raise_for_status()
 
-            image_data = response.content
-            image = Image.open(BytesIO(image_data))
+            # Vérifiez si la réponse est une image
+            if 'image' in response.headers['Content-Type']:
+                logging.debug("Response contains an image")
+                image_data = response.content
+                image = Image.open(BytesIO(image_data))
 
-            timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-            filename = f"image_{timestamp}.png"
-            filepath = os.path.join(images_dir, filename)
-            image.save(filepath)
-            filenames.append(filepath)
+                timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+                filename = f"image_{timestamp}.png"
+                filepath = os.path.join(images_dir, filename)
+                image.save(filepath)
+                filenames.append(filepath)
+                logging.debug(f"Saved image to {filepath}")
 
-            # Stocker l'image dans Supabase
-            data = {"prompt_text": prompt, "filename": filename}
-            logging.debug(f"Data to insert into images: {data}")
-            supabase.table('images').insert(data).execute()
+                # Stocker l'image dans Supabase
+                data = {"prompt_text": prompt, "filename": filename}
+                logging.debug(f"Data to insert into images: {data}")
+                supabase.table('images').insert(data).execute()
+            else:
+                logging.error(f"Response did not contain an image: {response.content}")
+
         except requests.exceptions.HTTPError as err:
             logging.error(f"HTTP error occurred: {err}")
         except Exception as err:
             logging.error(f"An error occurred: {err}")
 
     return filenames
+
 
 def create_video_with_text(image_paths, output_video, prompts, fps=1, audio_path='path_to_your_audio.mp3'):
     audio_clips = []
@@ -173,10 +183,15 @@ def get_history():
 @app.route('/generate_images', methods=['POST'])
 def generate_images_route():
     text = request.form['text']
+    logging.debug(f"Received text for image generation: {text}")
     prompts = [sentence.strip() for sentence in text.split('.') if sentence.strip()]
+    logging.debug(f"Generated prompts: {prompts}")
     image_filenames = generate_images_from_prompts(prompts)
+    logging.debug(f"Generated image filenames: {image_filenames}")
     image_urls = [url_for('static', filename=f'images/{os.path.basename(f)}') for f in image_filenames]
+    logging.debug(f"Generated image URLs: {image_urls}")
     return render_template('image_result.html', image_urls=image_urls, prompts=prompts)
+
 
 @app.route('/create_video', methods=['GET'])
 def create_video_route():

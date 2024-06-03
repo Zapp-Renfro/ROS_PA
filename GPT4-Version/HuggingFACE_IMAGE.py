@@ -35,5 +35,5 @@ def get_image_from_api(prompt):
         print(f"An error occurred: {err}")
 
 # Exemple d'utilisation
-prompt = "the most terrifying monster in the woods"
+prompt = "Le plus beau boss de jeu vidéo"
 get_image_from_api(prompt)
