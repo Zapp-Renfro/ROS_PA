@@ -43,6 +43,7 @@ def format_response(chat_history):
     return formatted_text
 
 import time
+from requests.exceptions import HTTPError
 
 def generate_images_from_prompts(prompts):
     images_dir = os.path.join('static', 'images')
@@ -94,7 +95,7 @@ def generate_images_from_prompts(prompts):
                     break
                 else:
                     logging.error(f"Response did not contain an image: {response.content}")
-            except requests.exceptions.HTTPError as err:
+            except HTTPError as err:
                 logging.error(f"HTTP error occurred: {err}")
                 if response.status_code == 503 and attempt < max_retries - 1:
                     retry_delay = base_retry_delay * (2 ** attempt)  # Exponential backoff
@@ -108,6 +109,7 @@ def generate_images_from_prompts(prompts):
                 break
 
     return filenames
+
 
 
 
