@@ -2,7 +2,8 @@ from flask import Flask, request, render_template, url_for, jsonify
 from diffusers import StableDiffusionPipeline
 from datetime import datetime
 import os
-from moviepy.editor import ImageClip, TextClip, CompositeVideoClip, concatenate_videoclips, AudioFileClip, concatenate_audioclips, CompositeAudioClip
+from moviepy.editor import ImageClip, TextClip, CompositeVideoClip, concatenate_videoclips, AudioFileClip, \
+    concatenate_audioclips, CompositeAudioClip
 from gtts import gTTS
 from supabase import create_client, Client
 import logging
@@ -12,6 +13,7 @@ from io import BytesIO
 from PIL import Image
 import random
 import shutil
+import gradio as gr
 
 HUGGINGFACE_API_TOKEN = "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"  # Remplacez
 API_URL = "https://api-inference.huggingface.co/models/dataautogpt3/ProteusV0.4"
@@ -29,9 +31,11 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 HEADERS_LIST = [{"Authorization": f"Bearer {HUGGINGFACE_API_TOKEN}"}]
 
+
 def text_to_speech(text, output_filename):
     tts = gTTS(text=text, lang='en')
     tts.save(output_filename)
+
 
 def format_response(chat_history):
     formatted_text = ""
@@ -42,8 +46,10 @@ def format_response(chat_history):
             formatted_text += f"<b>Réponse:</b> {entry['content']}<br><br>"
     return formatted_text
 
+
 import time
 from requests.exceptions import HTTPError
+
 
 def generate_images_from_prompts(prompts):
     images_dir = os.path.join('static', 'images')
@@ -111,8 +117,6 @@ def generate_images_from_prompts(prompts):
     return filenames
 
 
-
-
 def create_video_with_text(image_paths, output_video, prompts, fps=1, audio_path='path_to_your_audio.mp3'):
     audio_clips = []
     video_clips = []
@@ -128,7 +132,8 @@ def create_video_with_text(image_paths, output_video, prompts, fps=1, audio_path
         speech_clip = AudioFileClip(audio_filename)
 
         img_clip = ImageClip(img_file).set_duration(speech_clip.duration)
-        txt_clip = TextClip(prompt, fontsize=24, color='white', font='Arial').set_position(('center', 'center')).set_duration(speech_clip.duration)
+        txt_clip = TextClip(prompt, fontsize=24, color='white', font='Arial').set_position(
+            ('center', 'center')).set_duration(speech_clip.duration)
         video = CompositeVideoClip([img_clip, txt_clip])
         video = video.set_audio(speech_clip)
         video_clips.append(video)
@@ -155,6 +160,7 @@ def create_video_with_text(image_paths, output_video, prompts, fps=1, audio_path
     # Nettoyer les fichiers audio temporaires
     for audio_file in os.listdir(audio_dir):
         os.remove(os.path.join(audio_dir, audio_file))
+
 
 @app.route('/', methods=['GET', 'POST'])
 def generate_text():
@@ -200,6 +206,7 @@ def generate_text():
     else:
         return render_template('index.html')
 
+
 @app.route('/history', methods=['GET'])
 def get_history():
     try:
@@ -208,6 +215,7 @@ def get_history():
     except Exception as e:
         logging.error(f"Error fetching data from prompts: {str(e)}")
         return jsonify({"error": str(e)}), 400
+
 
 @app.route('/generate_images', methods=['POST'])
 def generate_images_route():
@@ -235,6 +243,7 @@ def create_video_route():
     create_video_with_text(image_paths, output_video, prompts, audio_path='static/music/relaxing-piano-201831.mp3')
     video_url = url_for('static', filename='videos/output_video.mp4')
     return render_template('video_result.html', video_url=video_url)
+
 
 # API Endpoints
 @app.route('/api/generate_text', methods=['POST'])
@@ -271,6 +280,7 @@ def api_generate_text():
 
     return jsonify({"response": generated_text}), 200
 
+
 @app.route('/api/generate_images', methods=['POST'])
 def api_generate_images():
     data = request.get_json()
@@ -283,5 +293,36 @@ def api_generate_images():
 
     return jsonify({"image_urls": image_urls}), 200
 
-if __name__ == '__main__':
+
+def generate_image(prompt):
+    headers = {
+        'Authorization': f'Bearer {HUGGINGFACE_API_TOKEN}'
+    }
+    response = requests.post(
+        'https://api-inference.huggingface.co/models/dataautogpt3/ProteusV0.4',
+        headers=headers,
+        json={'inputs': prompt}
+    )
+    if response.status_code != 200:
+        return f"Error: {response.status_code}"
+
+    image_data = base64.b64decode(response.json()['outputs'][0])
+    image = Image.open(BytesIO(image_data))
+    return image
+
+
+# Créer l'interface Gradio
+iface = gr.Interface(
+    fn=generate_image,
+    inputs="text",
+    outputs="image",
+    title="Image Generator",
+    description="Enter a text prompt to generate an image using Hugging Face's API."
+)
+
+# Lancer l'interface Gradio sur un port différent
+if __name__ == "__main__":
+    import threading
+
+    threading.Thread(target=lambda: iface.launch(server_name="0.0.0.0", server_port=7860)).start()
     app.run(debug=True)

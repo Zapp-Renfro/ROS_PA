@@ -27,7 +27,7 @@ def get_image_from_api(prompt):
         image = Image.open(BytesIO(image_data))
 
         # Sauvegarder l'image localement
-        image.save("output_image8.png")
+        image.save("output_image1.png")
         print("L'image a été sauvegardée sous le nom 'output_image3.png'")
     except requests.exceptions.HTTPError as err:
         print(f"HTTP error occurred: {err}")
@@ -35,5 +35,5 @@ def get_image_from_api(prompt):
         print(f"An error occurred: {err}")
 
 # Exemple d'utilisation
-prompt = "The most beautiful boss in video games"
+prompt = "The most powerful boss "
 get_image_from_api(prompt)
