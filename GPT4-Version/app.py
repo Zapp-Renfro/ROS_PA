@@ -16,7 +16,8 @@ import shutil
 import gradio as gr
 
 HUGGINGFACE_API_TOKEN = "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"  # Remplacez
-API_URL = "https://api-inference.huggingface.co/models/dataautogpt3/ProteusV0.4"
+API_URL_IMAGE = "https://api-inference.huggingface.co/models/dataautogpt3/ProteusV0.2"
+API_URL_IMAGE_V2 = "https://api-inference.huggingface.co/models/alvdansen/BandW-Manga"
 
 # Initialisation de l'application Flask
 app = Flask(__name__)
@@ -65,7 +66,7 @@ def generate_images_from_prompts(prompts):
         for attempt in range(max_retries):
             try:
                 logging.debug(f"Sending request to Hugging Face API with prompt: {prompt}")
-                response = requests.post(API_URL, headers=headers, json={"inputs": prompt})
+                response = requests.post(API_URL_IMAGE_V2, headers=headers, json={"inputs": prompt})
                 logging.debug(f"Response status code: {response.status_code}")
                 response.raise_for_status()
 
@@ -168,14 +169,14 @@ def generate_text():
         prompt = request.form['prompt']
 
         # Appel à l'API de Hugging Face avec le modèle gpt-neo-2.7B
-        API_URL = "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1"
+        API_URL_TEXT = "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1"
         API_TOKEN = "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"  # Remplacez par votre jeton API Hugging Face
         headers = {"Authorization": f"Bearer {API_TOKEN}"}
 
         # Log the request for debugging purposes
         logging.debug(f"Sending request to Hugging Face API with prompt: {prompt}")
 
-        response = requests.post(API_URL, headers=headers, json={"inputs": prompt})
+        response = requests.post(API_URL_TEXT , headers=headers, json={"inputs": prompt})
 
         # Log the response status code and content for debugging purposes
         logging.debug(f"Hugging Face API response status: {response.status_code}")
@@ -299,7 +300,7 @@ def generate_image(prompt):
         'Authorization': f'Bearer {HUGGINGFACE_API_TOKEN}'
     }
     response = requests.post(
-        'https://api-inference.huggingface.co/models/dataautogpt3/ProteusV0.4',
+        'https://api-inference.huggingface.co/models/dataautogpt3/ProteusV0.2',
         headers=headers,
         json={'inputs': prompt}
     )
