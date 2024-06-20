@@ -170,7 +170,7 @@ def generate_text():
 
         # Appel à l'API de Hugging Face avec le modèle gpt-neo-2.7B
         API_URL_TEXT = "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1"
-        API_TOKEN = "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"  # Remplacez par votre jeton API Hugging Face
+        API_TOKEN = "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"  # Remplacez par votre jeton API Hugging Face dd
         headers = {"Authorization": f"Bearer {API_TOKEN}"}
 
         # Log the request for debugging purposes

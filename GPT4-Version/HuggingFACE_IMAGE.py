@@ -17,7 +17,7 @@ HEADERS3 = {"Authorization": "Bearer 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"}
 HEADERS_LIST = [HEADERS1]
 
 def get_image_from_api(prompt):
-    # Sélectionner un en-tête aléatoire
+    # Sélectionner un en-tête aléatoiredd
     headers = random.choice(HEADERS_LIST)
 
     try:
