@@ -2,8 +2,7 @@ from flask import Flask, request, render_template, url_for, jsonify
 from diffusers import StableDiffusionPipeline
 from datetime import datetime
 import os
-from moviepy.editor import ImageClip, TextClip, CompositeVideoClip, concatenate_videoclips, AudioFileClip, \
-    concatenate_audioclips, CompositeAudioClip
+from moviepy.editor import ImageClip, TextClip, CompositeVideoClip, concatenate_videoclips, AudioFileClip, concatenate_audioclips, CompositeAudioClip
 from gtts import gTTS
 from supabase import create_client, Client
 import logging
@@ -13,7 +12,6 @@ from io import BytesIO
 from PIL import Image
 import random
 import shutil
-import gradio as gr
 
 HUGGINGFACE_API_TOKEN = "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"  # Remplacez
 API_URL_IMAGE = "https://api-inference.huggingface.co/models/dataautogpt3/ProteusV0.2"
@@ -133,8 +131,7 @@ def create_video_with_text(image_paths, output_video, prompts, fps=1, audio_path
         speech_clip = AudioFileClip(audio_filename)
 
         img_clip = ImageClip(img_file).set_duration(speech_clip.duration)
-        txt_clip = TextClip(prompt, fontsize=24, color='white', font='Arial').set_position(
-            ('center', 'center')).set_duration(speech_clip.duration)
+        txt_clip = TextClip(prompt, fontsize=24, color='white', font='Arial').set_position(('center', 'center')).set_duration(speech_clip.duration)
         video = CompositeVideoClip([img_clip, txt_clip])
         video = video.set_audio(speech_clip)
         video_clips.append(video)
@@ -295,35 +292,5 @@ def api_generate_images():
     return jsonify({"image_urls": image_urls}), 200
 
 
-def generate_image(prompt):
-    headers = {
-        'Authorization': f'Bearer {HUGGINGFACE_API_TOKEN}'
-    }
-    response = requests.post(
-        'https://api-inference.huggingface.co/models/dataautogpt3/ProteusV0.2',
-        headers=headers,
-        json={'inputs': prompt}
-    )
-    if response.status_code != 200:
-        return f"Error: {response.status_code}"
-
-    image_data = base64.b64decode(response.json()['outputs'][0])
-    image = Image.open(BytesIO(image_data))
-    return image
-
-
-# Créer l'interface Gradio
-iface = gr.Interface(
-    fn=generate_image,
-    inputs="text",
-    outputs="image",
-    title="Image Generator",
-    description="Enter a text prompt to generate an image using Hugging Face's API."
-)
-
-# Lancer l'interface Gradio sur un port différent
 if __name__ == "__main__":
-    import threading
-
-    threading.Thread(target=lambda: iface.launch(server_name="0.0.0.0", server_port=7860)).start()
     app.run(debug=True)
