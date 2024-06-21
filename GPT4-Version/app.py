@@ -10,7 +10,7 @@ import logging
 import requests
 import base64
 from io import BytesIO
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 import random
 from PIL import Image
 import numpy as np
@@ -114,7 +114,20 @@ def generate_images_from_prompts(prompts, code):
                 break
 
     return filenames
-
+def text_to_image(text, font_path='arial.ttf', font_size=24, image_size=(640, 480), color=(255, 255, 255), bg_color=(0, 0, 0)):
+    image = Image.new('RGB', image_size, color=bg_color)
+    draw = ImageDraw.Draw(image)
+    try:
+        font = ImageFont.truetype(font_path, font_size)
+    except IOError:
+        font = ImageFont.load_default()
+    # Utiliser textbbox pour obtenir la taille du texte
+    text_bbox = draw.textbbox((0, 0), text, font=font)
+    text_width = text_bbox[2] - text_bbox[0]
+    text_height = text_bbox[3] - text_bbox[1]
+    text_position = ((image_size[0] - text_width) / 2, (image_size[1] - text_height) / 2)
+    draw.text(text_position, text, font=font, fill=color)
+    return image
 
 def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path='static/music/relaxing-piano-201831.mp3'):
     audio_clips = []
@@ -134,9 +147,13 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
         image = Image.open(img_data)
         img_array = np.array(image)
 
+        # Créer une image avec du texte en utilisant Pillow
+        text_image = text_to_image(prompt)
+        text_img_array = np.array(text_image)
+
         img_clip = ImageClip(img_array).set_duration(speech_clip.duration)
-        txt_clip = TextClip(prompt, fontsize=24, color='white', font='Arial').set_position(('center', 'center')).set_duration(speech_clip.duration)
-        video = CompositeVideoClip([img_clip, txt_clip])
+        txt_clip = ImageClip(text_img_array).set_duration(speech_clip.duration)
+        video = CompositeVideoClip([img_clip, txt_clip.set_position(('center', 'center'))])
         video = video.set_audio(speech_clip)
         video_clips.append(video)
         audio_clips.append(speech_clip)
