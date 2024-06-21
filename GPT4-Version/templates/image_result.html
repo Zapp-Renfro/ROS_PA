@@ -19,6 +19,7 @@
             {% for prompt in prompts %}
                 <input type="hidden" name="prompts" value="{{ prompt }}">
             {% endfor %}
+            <input type="hidden" name="code" value="{{ code }}">
             <button type="submit" class="btn">Créer Vidéo</button>
         </form>
 

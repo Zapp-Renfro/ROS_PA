@@ -14,6 +14,7 @@ from PIL import Image
 import random
 from PIL import Image
 import numpy as np
+import uuid
 
 import shutil
 
@@ -54,7 +55,7 @@ import time
 from requests.exceptions import HTTPError
 
 
-def generate_images_from_prompts(prompts):
+def generate_images_from_prompts(prompts, code):
     filenames = []
     max_retries = 5
     base_retry_delay = 5  # seconds
@@ -89,7 +90,7 @@ def generate_images_from_prompts(prompts):
                         image_blob = img_byte_arr.read()
 
                     # Stocker l'image dans Supabase
-                    data = {"prompt_text": prompt, "filename": filename, "image_blob": base64.b64encode(image_blob).decode('utf-8')}
+                    data = {"prompt_text": prompt, "filename": filename, "image_blob": base64.b64encode(image_blob).decode('utf-8'), "code": code}
                     logging.debug(f"Data to insert into images: {data}")
                     try:
                         supabase.table('images').insert(data).execute()
@@ -224,7 +225,11 @@ def generate_images_route():
     logging.debug(f"Received text for image generation: {text}")
     prompts = [sentence.strip() for sentence in text.split('.') if sentence.strip()]
     logging.debug(f"Generated prompts: {prompts}")
-    image_filenames = generate_images_from_prompts(prompts)
+
+    # Générer un code unique pour ce groupe de prompts
+    code = str(uuid.uuid4())
+
+    image_filenames = generate_images_from_prompts(prompts, code)
     logging.debug(f"Generated image filenames: {image_filenames}")
 
     # Fetch image URLs from Supabase
@@ -236,15 +241,22 @@ def generate_images_route():
             image_urls.append(f"data:image/png;base64,{image_blob}")
 
     logging.debug(f"Generated image URLs: {image_urls}")
-    return render_template('image_result.html', image_urls=image_urls, prompts=prompts)
+    return render_template('image_result.html', image_urls=image_urls, prompts=prompts, code=code)
 
 
 @app.route('/create_video', methods=['GET'])
 def create_video_route():
     prompts = request.args.getlist('prompts')
+    code = request.args.get('code')
 
-    # Récupérer les images depuis Supabase
-    response = supabase.table('images').select('image_blob').execute()
+    if not code:
+        logging.error("No code provided for video creation.")
+        return "No code provided", 400
+
+    logging.info(f"Creating video for code: {code} with prompts: {prompts}")
+
+    # Récupérer les images depuis Supabase avec le code
+    response = supabase.table('images').select('image_blob').eq('code', code).execute()
     if response.data:
         images_data = []
         for img in response.data:
@@ -252,37 +264,39 @@ def create_video_route():
             if image_blob:
                 try:
                     images_data.append(BytesIO(base64.b64decode(image_blob)))
+                    logging.info(f"Image retrieved for code {code}")
                 except Exception as e:
-                    logging.error(f"Failed to decode image: {e}")
+                    logging.error(f"Failed to decode image for code {code}: {e}")
     else:
-        logging.error("No images found in Supabase.")
+        logging.error(f"No images found for code {code}.")
         images_data = []
+
+    if not images_data:
+        logging.error(f"No valid images found for code {code}.")
+        return "No valid images found", 400
 
     output_video = 'static/videos/output_video.mp4'
     if not os.path.exists('static/videos'):
         os.makedirs('static/videos')
 
     # Créer la vidéo avec les images récupérées
-    if images_data:
-        create_video_with_text(images_data, output_video, prompts, audio_path='static/music/relaxing-piano-201831.mp3')
+    create_video_with_text(images_data, output_video, prompts, audio_path='static/music/relaxing-piano-201831.mp3')
 
-        # Obtenir le lien de la vidéo stockée dans Supabase
-        with open(output_video, 'rb') as video_file:
-            video_blob = video_file.read()
-        video_base64 = base64.b64encode(video_blob).decode('utf-8')
+    # Obtenir le lien de la vidéo stockée dans Supabase
+    with open(output_video, 'rb') as video_file:
+        video_blob = video_file.read()
+    video_base64 = base64.b64encode(video_blob).decode('utf-8')
 
-        video_data = {
-            "filename": os.path.basename(output_video),
-            "video_blob": video_base64
-        }
+    video_data = {
+        "filename": os.path.basename(output_video),
+        "video_blob": video_base64
+    }
 
-        try:
-            supabase.table('videos').insert(video_data).execute()
-            video_url = f"data:video/mp4;base64,{video_base64}"
-        except Exception as e:
-            logging.error(f"Error inserting video data into Supabase: {e}")
-            video_url = None
-    else:
+    try:
+        supabase.table('videos').insert(video_data).execute()
+        video_url = f"data:video/mp4;base64,{video_base64}"
+    except Exception as e:
+        logging.error(f"Error inserting video data into Supabase: {e}")
         video_url = None
 
     return render_template('video_result.html', video_url=video_url)
