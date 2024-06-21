@@ -114,8 +114,23 @@ def generate_images_from_prompts(prompts, code):
                 break
 
     return filenames
-def text_to_image(text, font_path='arial.ttf', font_size=24, image_size=(640, 480), color=(255, 255, 255), bg_color=(0, 0, 0)):
-    image = Image.new('RGB', image_size, color=bg_color)
+
+
+def text_to_image(img_array, text, font_path='arialbd.ttf', font_size=36, text_color=(255, 255, 255),
+                  outline_color=(0, 0, 0), shadow_color=(50, 50, 50)):
+    """
+    Ajoutez du texte directement sur l'image avec contour sombre, ombre portée, et texte en gras.
+
+    :param img_array: tableau NumPy de l'image
+    :param text: texte à ajouter
+    :param font_path: chemin vers le fichier de police
+    :param font_size: taille de la police
+    :param text_color: couleur du texte
+    :param outline_color: couleur du contour du texte
+    :param shadow_color: couleur de l'ombre du texte
+    :return: tableau NumPy de l'image avec le texte
+    """
+    image = Image.fromarray(img_array)
     draw = ImageDraw.Draw(image)
     try:
         font = ImageFont.truetype(font_path, font_size)
@@ -125,11 +140,34 @@ def text_to_image(text, font_path='arial.ttf', font_size=24, image_size=(640, 48
     text_bbox = draw.textbbox((0, 0), text, font=font)
     text_width = text_bbox[2] - text_bbox[0]
     text_height = text_bbox[3] - text_bbox[1]
-    text_position = ((image_size[0] - text_width) / 2, (image_size[1] - text_height) / 2)
-    draw.text(text_position, text, font=font, fill=color)
-    return image
+    text_position = ((image.width - text_width) / 2, (image.height - text_height) / 2)
+
+    # Dessiner l'ombre
+    shadow_offset = 2
+    draw.text((text_position[0] + shadow_offset, text_position[1] + shadow_offset), text, font=font, fill=shadow_color)
+
+    # Dessiner le contour
+    outline_range = 1
+    for x in range(-outline_range, outline_range + 1):
+        for y in range(-outline_range, outline_range + 1):
+            if x != 0 or y != 0:
+                draw.text((text_position[0] + x, text_position[1] + y), text, font=font, fill=outline_color)
+
+    # Dessiner le texte
+    draw.text(text_position, text, font=font, fill=text_color)
+
+    return np.array(image)
 
 def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path='static/music/relaxing-piano-201831.mp3'):
+    """
+    Créez une vidéo en ajoutant du texte directement sur les images.
+
+    :param images_data: liste d'objets BytesIO contenant les données d'image
+    :param output_video: chemin du fichier de sortie de la vidéo
+    :param prompts: liste de textes à ajouter aux images
+    :param fps: frames per second de la vidéo
+    :param audio_path: chemin du fichier audio
+    """
     audio_clips = []
     video_clips = []
 
@@ -144,17 +182,14 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
         speech_clip = AudioFileClip(audio_filename)
 
         # Convertir les données d'image en tableau NumPy
-        image = Image.open(img_data)
+        image = Image.open(img_data).convert('RGBA')
         img_array = np.array(image)
 
-        # Créer une image avec du texte en utilisant Pillow
-        text_image = text_to_image(prompt)
-        text_img_array = np.array(text_image)
+        # Ajouter le texte directement sur l'image
+        img_with_text = text_to_image(img_array, prompt, font_path='arialbd.ttf', font_size=36)
 
-        img_clip = ImageClip(img_array).set_duration(speech_clip.duration)
-        txt_clip = ImageClip(text_img_array).set_duration(speech_clip.duration)
-        video = CompositeVideoClip([img_clip, txt_clip.set_position(('center', 'center'))])
-        video = video.set_audio(speech_clip)
+        img_clip = ImageClip(img_with_text).set_duration(speech_clip.duration)
+        video = img_clip.set_audio(speech_clip)
         video_clips.append(video)
         audio_clips.append(speech_clip)
 
