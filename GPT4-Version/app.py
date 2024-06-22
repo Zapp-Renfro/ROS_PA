@@ -4,6 +4,8 @@ from datetime import datetime
 import os
 from moviepy.editor import ImageClip, TextClip, CompositeVideoClip, concatenate_videoclips, AudioFileClip, concatenate_audioclips, CompositeAudioClip
 from gtts import gTTS
+from moviepy.video.io.VideoFileClip import VideoFileClip
+
 from supabase import create_client, Client
 import requests
 import base64
@@ -19,7 +21,7 @@ from worker import conn
 import logging
 import time
 from requests.exceptions import HTTPError
-
+JAMENDO_CLIENT_ID = "1fe12850"
 HUGGINGFACE_API_TOKEN = "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"  # Remplacez
 API_URL_IMAGE = "https://api-inference.huggingface.co/models/dataautogpt3/ProteusV0.2"
 API_URL_IMAGE_V2 = "https://api-inference.huggingface.co/models/alvdansen/BandW-Manga"
@@ -37,6 +39,29 @@ SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 HEADERS_LIST = [{"Authorization": f"Bearer {HUGGINGFACE_API_TOKEN}"}]
+
+mood = "bad"
+def search_music_by_mood(mood):
+    url = "https://api.jamendo.com/v3.0/tracks"
+    params = {
+        "client_id": JAMENDO_CLIENT_ID,
+        "format": "json",
+        "limit": 10,
+        "tags": mood
+    }
+
+    response = requests.get(url, params=params)
+
+    if response.status_code != 200:
+        print("Error: ", response.status_code)
+        print(response.text)
+        return None
+
+    return response.json()
+
+def get_video_duration(video_path):
+    with VideoFileClip(video_path) as video:
+        return int(video.duration)
 
 def text_to_speech(text, output_filename):
     tts = gTTS(text=text, lang='en')
@@ -375,6 +400,31 @@ def api_generate_images():
         func=generate_images_from_prompts, args=(prompts, code), result_ttl=5000
     )
     return jsonify({'job_id': job.get_id()}), 202
+
+@app.route('/music_choice', methods=['POST'])
+def music_choice():
+    mood_tracks = []
+    search_tracks = []
+    error = None
+
+    # Récupérer les pistes pour l'humeur "sad"
+    mood_result = search_music_by_mood(mood)
+    if mood_result and 'results' in mood_result:
+        mood_tracks = mood_result['results']
+    else:
+        error = "Aucune piste trouvée pour l'humeur donnée."
+
+    # Si une recherche par mot-clé est effectuée
+    if request.method == 'POST':
+        query = request.form.get('query')
+        if query:
+            search_result = search_music_by_mood(query)
+            if search_result:
+                search_tracks = search_result['results']
+            else:
+                error = "Aucune piste trouvée pour la recherche."
+
+    return render_template('music_choice.html', mood=mood, mood_tracks=mood_tracks, search_tracks=search_tracks, error=error)
 
 if __name__ == "__main__":
     app.run(debug=True)
