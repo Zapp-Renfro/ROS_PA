@@ -1,15 +1,15 @@
 import os
 import redis
-from rq import Worker, Queue  # Modification ici
+from rq import Worker, Queue
 import logging
 
 # Configure logging
-logging.basic(level=logging.DEBUG)
+logging.basicConfig(level=logging.DEBUG)
 
 listen = ['default', 'high', 'low']
 
 # Redis URL
-redis_url = 'redis://:pc26bcac62e4cbc350ac192fe4b5bedee252c6aa82bbf45e29ed574216da19536@ec2-52-45-177-80.compute-1.amazonaws.com:12479'
+redis_url = os.getenv('REDIS_URL', 'redis://:pc26bcac62e4cbc350ac192fe4b5bedee252c6aa82bbf45e29ed574216da19536@ec2-52-45-177-80.compute-1.amazonaws.com:12479')
 
 logging.debug(f"Connecting to Redis at {redis_url}")
 
@@ -24,8 +24,8 @@ if __name__ == '__main__':
     logging.debug("Starting worker")
     try:
         # Explicitly set the connection for each queue
-        queues = [Queue(name, connection=conn) for name in listen]  # Modification ici
-        worker = Worker(queues, connection=conn)  # Modification ici
+        queues = [Queue(name, connection=conn) for name in listen]
+        worker = Worker(queues, connection=conn)
         worker.work()
     except Exception as e:
         logging.error(f"Worker crashed: {e}")
