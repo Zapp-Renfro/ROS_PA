@@ -8,6 +8,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 listen = ['default']
 redis_url = os.getenv('REDIS_URL')
+print(redis_url)
 
 if not redis_url:
     raise ValueError("REDIS_URL is not set")
@@ -16,6 +17,7 @@ logging.debug(f"Connecting to Redis at {redis_url}")
 
 try:
     conn = redis.from_url(redis_url)
+    print(conn.ping())
 except Exception as e:
     logging.error(f"Failed to connect to Redis: {e}")
     raise
