@@ -52,6 +52,13 @@
                                 <source src="{{ track['audio'] }}" type="audio/mpeg">
                                 Votre navigateur ne supporte pas l'élément audio.
                             </audio>
+                            <form method="POST" action="{{ url_for('select_track') }}" class="select-form">
+                                <input type="hidden" name="track_id" value="{{ track['id'] }}">
+                                <input type="hidden" name="track_name" value="{{ track['name'] }}">
+                                <input type="hidden" name="artist_name" value="{{ track['artist_name'] }}">
+                                <input type="hidden" name="preview_url" value="{{ track['audio'] }}">
+                                <button type="submit">Sélectionner</button>
+                            </form>
                         </div>
                     </li>
                 {% endfor %}

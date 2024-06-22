@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, jsonify
+from flask import Flask, request, render_template, jsonify, session
 from diffusers import StableDiffusionPipeline
 from datetime import datetime
 import os
@@ -29,6 +29,7 @@ API_URL_IMAGE_V2 = "https://api-inference.huggingface.co/models/alvdansen/BandW-
 # Initialisation de l'application Flask
 app = Flask(__name__)
 q = Queue(connection=conn)
+app.secret_key = 'votre_cle_secrete'
 
 # Configuration de logging
 logging.basicConfig(level=logging.DEBUG)
@@ -333,7 +334,7 @@ def create_video_route():
 
     # Créer la vidéo avec les images récupérées
     create_video_with_text(images_data, output_video, prompts, audio_path='static/music/relaxing-piano-201831.mp3')
-
+    session['video_path'] = output_video
     # Obtenir le lien de la vidéo stockée dans Supabase
     with open(output_video, 'rb') as video_file:
         video_blob = video_file.read()
@@ -438,6 +439,25 @@ def music_choice():
         error = "Une erreur est survenue. Veuillez réessayer plus tard."
 
     return render_template('music_choice.html', mood=mood, mood_tracks=mood_tracks, search_tracks=search_tracks, error=error)
+
+@app.route('/select_track', methods=['POST'])
+def select_track():
+    track_id = request.form.get('track_id')
+    track_name = request.form.get('track_name')
+    artist_name = request.form.get('artist_name')
+    preview_url = request.form.get('preview_url')
+
+    # Path to the existing video file
+    video_path = session.get('video_path')
+
+    if not os.path.exists(video_path):
+        return "Fichier vidéo non trouvé.", 404
+
+    # Get the duration of the existing video
+    video_duration = get_video_duration(video_path)
+
+    return render_template('play.html', track_id=track_id, track_name=track_name, artist_name=artist_name,
+                           preview_url=preview_url, video_duration=video_duration)
 
 if __name__ == "__main__":
     app.run(debug=True)
