@@ -11,10 +11,9 @@
             <source src="{{ video_url }}" type="video/mp4">
             Votre navigateur ne supporte pas la balise vidéo.
         </video>
-        <div>
-            <a href="{{ url_for('index') }}" class="button">Retour</a>
-            <a href="{{ url_for('music_choice') }}" class="button">Choisir Musique</a>
-        </div>
+        <form action="{{ url_for('music_choice') }}">
+            <button type="submit" class="btn">Choisir une autre musique</button>
+        </form>
     </div>
 </body>
 </html>
