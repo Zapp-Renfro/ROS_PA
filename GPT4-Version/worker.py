@@ -25,8 +25,7 @@ except Exception as e:
 if __name__ == '__main__':
     logging.debug("Starting worker")
     try:
-        queues = list(map(Queue, listen))
-        worker = Worker(queues, connection=conn)  # Explicitly pass the connection
+        worker = Worker(list(map(Queue, listen)), connection=conn)
         worker.work()
     except Exception as e:
         logging.error(f"Worker crashed: {e}")
