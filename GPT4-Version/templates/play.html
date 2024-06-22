@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Play Track</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='play.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/14.7.0/nouislider.min.css">
     <style>
         .slider {
@@ -36,7 +36,13 @@
             <div>Fin: <span id="end_time_display">{{ video_duration }}</span></div>
         </div>
         <button id="playSelected" class="play-button">Écouter la sélection</button>
-
+        <form method="POST" action="{{ url_for('create_video') }}">
+            <input type="hidden" name="track_id" value="{{ track_id }}">
+            <input type="hidden" name="preview_url" value="{{ preview_url }}">
+            <input type="hidden" id="hidden_start_time" name="start_time" value="0">
+            <input type="hidden" id="hidden_end_time" name="end_time" value="{{ video_duration }}">
+            <button type="submit">Créer une vidéo</button>
+        </form>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/14.7.0/nouislider.min.js"></script>
