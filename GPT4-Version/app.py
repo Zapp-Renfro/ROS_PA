@@ -401,7 +401,7 @@ def api_generate_images():
     )
     return jsonify({'job_id': job.get_id()}), 202
 
-@app.route('/music_choice', methods=['POST'])
+@app.route('/music_choice', methods=['GET', 'POST'])
 def music_choice():
     mood_tracks = []
     search_tracks = []
