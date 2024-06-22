@@ -2,11 +2,9 @@ from flask import Flask, request, render_template, url_for, jsonify
 from diffusers import StableDiffusionPipeline
 from datetime import datetime
 import os
-from moviepy.editor import ImageClip, TextClip, CompositeVideoClip, concatenate_videoclips, AudioFileClip, \
-    concatenate_audioclips, CompositeAudioClip
+from moviepy.editor import ImageClip, TextClip, CompositeVideoClip, concatenate_videoclips, AudioFileClip, concatenate_audioclips, CompositeAudioClip
 from gtts import gTTS
 from supabase import create_client, Client
-import logging
 import requests
 import base64
 from io import BytesIO
@@ -15,8 +13,13 @@ import random
 from PIL import Image
 import numpy as np
 import uuid
+from rq import Queue
+from rq.job import Job
+from worker import conn
+import uuid
+import logging
 
-import shutil
+
 
 HUGGINGFACE_API_TOKEN = "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"  # Remplacez
 API_URL_IMAGE = "https://api-inference.huggingface.co/models/dataautogpt3/ProteusV0.2"
@@ -24,6 +27,7 @@ API_URL_IMAGE_V2 = "https://api-inference.huggingface.co/models/alvdansen/BandW-
 
 # Initialisation de l'application Flask
 app = Flask(__name__)
+q = Queue(connection=conn)
 
 # Configuration de logging
 logging.basicConfig(level=logging.DEBUG)
@@ -281,19 +285,19 @@ def generate_images_route():
     # Générer un code unique pour ce groupe de prompts
     code = str(uuid.uuid4())
 
-    image_filenames = generate_images_from_prompts(prompts, code)
-    logging.debug(f"Generated image filenames: {image_filenames}")
+    # Déplacer la génération d'images vers une tâche en arrière-plan
+    job = q.enqueue_call(
+        func=generate_images_from_prompts, args=(prompts, code), result_ttl=5000
+    )
+    return jsonify({'job_id': job.get_id()}), 202
 
-    # Fetch image URLs from Supabase
-    image_urls = []
-    for filename in image_filenames:
-        response = supabase.table('images').select('image_blob').eq('filename', filename).execute()
-        if response.data:
-            image_blob = response.data[0]['image_blob']
-            image_urls.append(f"data:image/png;base64,{image_blob}")
-
-    logging.debug(f"Generated image URLs: {image_urls}")
-    return render_template('image_result.html', image_urls=image_urls, prompts=prompts, code=code)
+@app.route('/results/<job_id>', methods=['GET'])
+def get_results(job_id):
+    job = Job.fetch(job_id, connection=conn)
+    if job.is_finished:
+        return jsonify(job.result), 200
+    else:
+        return "Still processing", 202
 
 
 @app.route('/create_video', methods=['GET'])
