@@ -407,22 +407,35 @@ def music_choice():
     search_tracks = []
     error = None
 
-    # Récupérer les pistes pour l'humeur "sad"
-    mood_result = search_music_by_mood(mood)
-    if mood_result and 'results' in mood_result:
-        mood_tracks = mood_result['results']
-    else:
-        error = "Aucune piste trouvée pour l'humeur donnée."
+    try:
+        # Définir une humeur par défaut
+        mood = 'sad'  # Remplacez 'sad' par une méthode pour récupérer la véritable humeur si nécessaire
+        app.logger.info(f'Retrieving tracks for mood: {mood}')
 
-    # Si une recherche par mot-clé est effectuée
-    if request.method == 'POST':
-        query = request.form.get('query')
-        if query:
-            search_result = search_music_by_mood(query)
-            if search_result:
-                search_tracks = search_result['results']
-            else:
-                error = "Aucune piste trouvée pour la recherche."
+        # Récupérer les pistes pour l'humeur "sad"
+        mood_result = search_music_by_mood(mood)
+        if mood_result and 'results' in mood_result:
+            mood_tracks = mood_result['results']
+            app.logger.info(f'Found {len(mood_tracks)} tracks for mood: {mood}')
+        else:
+            error = "Aucune piste trouvée pour l'humeur donnée."
+            app.logger.error(error)
+
+        # Si une recherche par mot-clé est effectuée
+        if request.method == 'POST':
+            query = request.form.get('query')
+            app.logger.info(f'Search query: {query}')
+            if query:
+                search_result = search_music_by_mood(query)
+                if search_result:
+                    search_tracks = search_result['results']
+                    app.logger.info(f'Found {len(search_tracks)} tracks for search query: {query}')
+                else:
+                    error = "Aucune piste trouvée pour la recherche."
+                    app.logger.error(error)
+    except Exception as e:
+        app.logger.exception(f"Error in /music_choice route: {e}")
+        error = "Une erreur est survenue. Veuillez réessayer plus tard."
 
     return render_template('music_choice.html', mood=mood, mood_tracks=mood_tracks, search_tracks=search_tracks, error=error)
 
