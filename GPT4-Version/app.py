@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, url_for, jsonify
+from flask import Flask, request, render_template, jsonify
 from diffusers import StableDiffusionPipeline
 from datetime import datetime
 import os
@@ -16,10 +16,9 @@ import uuid
 from rq import Queue
 from rq.job import Job
 from worker import conn
-import uuid
 import logging
-
-
+import time
+from requests.exceptions import HTTPError
 
 HUGGINGFACE_API_TOKEN = "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"  # Remplacez
 API_URL_IMAGE = "https://api-inference.huggingface.co/models/dataautogpt3/ProteusV0.2"
@@ -39,11 +38,9 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 HEADERS_LIST = [{"Authorization": f"Bearer {HUGGINGFACE_API_TOKEN}"}]
 
-
 def text_to_speech(text, output_filename):
     tts = gTTS(text=text, lang='en')
     tts.save(output_filename)
-
 
 def format_response(chat_history):
     formatted_text = ""
@@ -53,11 +50,6 @@ def format_response(chat_history):
         elif entry['role'] == 'assistant':
             formatted_text += f"<b>Réponse:</b> {entry['content']}<br><br>"
     return formatted_text
-
-
-import time
-from requests.exceptions import HTTPError
-
 
 def generate_images_from_prompts(prompts, code):
     filenames = []
@@ -119,21 +111,8 @@ def generate_images_from_prompts(prompts, code):
 
     return filenames
 
-
 def text_to_image(img_array, text, font_path='arialbd.ttf', font_size=36, text_color=(255, 255, 255),
                   outline_color=(0, 0, 0), shadow_color=(50, 50, 50)):
-    """
-    Ajoutez du texte directement sur l'image avec contour sombre, ombre portée, et texte en gras.
-
-    :param img_array: tableau NumPy de l'image
-    :param text: texte à ajouter
-    :param font_path: chemin vers le fichier de police
-    :param font_size: taille de la police
-    :param text_color: couleur du texte
-    :param outline_color: couleur du contour du texte
-    :param shadow_color: couleur de l'ombre du texte
-    :return: tableau NumPy de l'image avec le texte
-    """
     image = Image.fromarray(img_array)
     draw = ImageDraw.Draw(image)
     try:
@@ -163,15 +142,6 @@ def text_to_image(img_array, text, font_path='arialbd.ttf', font_size=36, text_c
     return np.array(image)
 
 def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path='static/music/relaxing-piano-201831.mp3'):
-    """
-    Créez une vidéo en ajoutant du texte directement sur les images.
-
-    :param images_data: liste d'objets BytesIO contenant les données d'image
-    :param output_video: chemin du fichier de sortie de la vidéo
-    :param prompts: liste de textes à ajouter aux images
-    :param fps: frames per second de la vidéo
-    :param audio_path: chemin du fichier audio
-    """
     audio_clips = []
     video_clips = []
 
@@ -216,10 +186,6 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
     for audio_file in os.listdir(audio_dir):
         os.remove(os.path.join(audio_dir, audio_file))
 
-
-
-
-
 @app.route('/', methods=['GET', 'POST'])
 def generate_text():
     if request.method == 'POST':
@@ -227,13 +193,13 @@ def generate_text():
 
         # Appel à l'API de Hugging Face avec le modèle gpt-neo-2.7B
         API_URL_TEXT = "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1"
-        API_TOKEN = "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"  # Remplacez par votre jeton API Hugging Face dd
+        API_TOKEN = "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"  # Remplacez par votre jeton API Hugging Face
         headers = {"Authorization": f"Bearer {API_TOKEN}"}
 
         # Log the request for debugging purposes
         logging.debug(f"Sending request to Hugging Face API with prompt: {prompt}")
 
-        response = requests.post(API_URL_TEXT , headers=headers, json={"inputs": prompt})
+        response = requests.post(API_URL_TEXT, headers=headers, json={"inputs": prompt})
 
         # Log the response status code and content for debugging purposes
         logging.debug(f"Hugging Face API response status: {response.status_code}")
@@ -264,7 +230,6 @@ def generate_text():
     else:
         return render_template('index.html')
 
-
 @app.route('/history', methods=['GET'])
 def get_history():
     try:
@@ -273,7 +238,6 @@ def get_history():
     except Exception as e:
         logging.error(f"Error fetching data from prompts: {str(e)}")
         return jsonify({"error": str(e)}), 400
-
 
 @app.route('/generate_images', methods=['POST'])
 def generate_images_route():
@@ -295,10 +259,18 @@ def generate_images_route():
 def get_results(job_id):
     job = Job.fetch(job_id, connection=conn)
     if job.is_finished:
-        return jsonify(job.result), 200
+        # Fetch image URLs from Supabase
+        code = job.args[1]
+        response = supabase.table('images').select('image_blob').eq('code', code).execute()
+        image_urls = []
+        if response.data:
+            for img in response.data:
+                image_blob = img.get('image_blob')
+                if image_blob:
+                    image_urls.append(f"data:image/png;base64,{image_blob}")
+        return jsonify({"image_urls": image_urls}), 200
     else:
         return "Still processing", 202
-
 
 @app.route('/create_video', methods=['GET'])
 def create_video_route():
@@ -357,7 +329,6 @@ def create_video_route():
 
     return render_template('video_result.html', video_url=video_url)
 
-
 # API Endpoints
 @app.route('/api/generate_text', methods=['POST'])
 def api_generate_text():
@@ -393,7 +364,6 @@ def api_generate_text():
 
     return jsonify({"response": generated_text}), 200
 
-
 @app.route('/api/generate_images', methods=['POST'])
 def api_generate_images():
     data = request.get_json()
@@ -401,16 +371,11 @@ def api_generate_images():
     if not prompts:
         return jsonify({"error": "Prompts are required"}), 400
 
-    image_filenames = generate_images_from_prompts(prompts)
-    image_urls = []
-    for filename in image_filenames:
-        response = supabase.table('images').select('image_blob').eq('filename', filename).execute()
-        if response.data:
-            image_blob = response.data[0]['image_blob']
-            image_urls.append(f"data:image/png;base64,{image_blob}")
-
-    return jsonify({"image_urls": image_urls}), 200
-
+    code = str(uuid.uuid4())
+    job = q.enqueue_call(
+        func=generate_images_from_prompts, args=(prompts, code), result_ttl=5000
+    )
+    return jsonify({'job_id': job.get_id()}), 202
 
 if __name__ == "__main__":
     app.run(debug=True)

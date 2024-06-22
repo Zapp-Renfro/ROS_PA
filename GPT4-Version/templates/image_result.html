@@ -4,14 +4,46 @@
     <title>Images Générées</title>
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='image_result.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <script>
+        async function checkJobStatus(jobId) {
+            try {
+                let response = await fetch(`/results/${jobId}`);
+                if (response.status === 202) {
+                    // Still processing, retry after a delay
+                    setTimeout(() => checkJobStatus(jobId), 2000); // Retry every 2 seconds
+                } else {
+                    // Job finished, display results
+                    let data = await response.json();
+                    displayImages(data.image_urls);
+                }
+            } catch (error) {
+                console.error('Error fetching job status:', error);
+            }
+        }
+
+        function displayImages(imageUrls) {
+            const container = document.querySelector('.image-container');
+            container.innerHTML = ''; // Clear any existing content
+            imageUrls.forEach(url => {
+                const img = document.createElement('img');
+                img.src = url;
+                img.alt = 'Generated Image';
+                container.appendChild(img);
+            });
+        }
+
+        // Trigger the job status check after the page loads
+        document.addEventListener('DOMContentLoaded', (event) => {
+            const jobId = "{{ job_id }}"; // Pass the job ID from the server
+            checkJobStatus(jobId);
+        });
+    </script>
 </head>
 <body>
     <div class="container">
         <h1>Images Générées</h1>
         <div class="image-container">
-            {% for image_url in image_urls %}
-                <img src="{{ image_url }}" alt="Generated Image">
-            {% endfor %}
+            <!-- Images will be dynamically inserted here -->
         </div>
 
         <!-- Formulaire pour créer la vidéo -->
