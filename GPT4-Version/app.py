@@ -298,7 +298,7 @@ def get_results(job_id):
         return "Still processing", 202
 
 @app.route('/create_video', methods=['GET'])
-def create_video_route():
+def create_video():
     prompts = request.args.getlist('prompts')
     code = request.args.get('code')
 
