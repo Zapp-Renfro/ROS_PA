@@ -11,33 +11,6 @@
             <source src="{{ video_url }}" type="video/mp4">
             Votre navigateur ne supporte pas la balise vidéo.
         </video>
-
-        <form action="/music_choice" method="post">
-            <label for="query">Choisir musique:</label>
-            <input type="text" id="query" name="query" placeholder="Recherche par mot-clé">
-            <button type="submit">Rechercher</button>
-        </form>
-
-        <div>
-            {% if error %}
-                <p>{{ error }}</p>
-            {% endif %}
-
-            <h2>Résultats pour l'humeur "sad"</h2>
-            <ul>
-                {% for track in mood_tracks %}
-                    <li>{{ track }}</li>
-                {% endfor %}
-            </ul>
-
-            <h2>Résultats de recherche</h2>
-            <ul>
-                {% for track in search_tracks %}
-                    <li>{{ track }}</li>
-                {% endfor %}
-            </ul>
-        </div>
-
         <a href="/">Retour</a>
     </div>
 </body>
