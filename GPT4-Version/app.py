@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, jsonify, session
+from flask import Flask, request, render_template, jsonify, session, url_for, redirect
 from diffusers import StableDiffusionPipeline
 from datetime import datetime
 import os
@@ -458,6 +458,62 @@ def select_track():
 
     return render_template('play.html', track_id=track_id, track_name=track_name, artist_name=artist_name,
                            preview_url=preview_url, video_duration=video_duration)
+
+@app.route('/create_videos', methods=['POST'])
+def create_videos():
+    track_id = request.form.get('track_id')
+    preview_url = request.form.get('preview_url')
+    music_start_time = int(request.form.get('start_time'))
+    music_end_time = int(request.form.get('end_time'))
+
+    # Path to the existing video file
+    video_path = 'static/videos/output_video.mp4'
+
+    if not os.path.exists(video_path):
+        return "Fichier vidéo non trouvé.", 404
+
+    # Get the duration of the existing video
+    video_duration = get_video_duration(video_path)
+
+    # Calculate the duration of the selected music segment
+    music_segment_duration = music_end_time - music_start_time
+
+    # Ensure the selected segment duration does not exceed the video duration
+    if music_segment_duration > video_duration:
+        return "La durée de la sélection de la musique dépasse la durée de la vidéo.", 400
+
+    # Ensure the selected segment is valid
+    if music_end_time <= music_start_time:
+        return "Temps de début ou de fin invalide.", 400
+
+    # Download the audio preview
+    audio_path = download_audio_preview(preview_url)
+    if not audio_path:
+        return "Aperçu audio non trouvé.", 404
+
+    # Create a temporary file for the new video with audio
+    output_video_path = os.path.join('static', 'output_with_audio.mp4')
+    audio_clip = None
+    try:
+        # Load the existing video clip
+        video_clip = VideoFileClip(video_path).subclip(0, music_segment_duration)
+        # Add the audio file to the video
+        audio_clip = AudioFileClip(audio_path).subclip(music_start_time, music_end_time)
+        video_clip = video_clip.set_audio(audio_clip)
+        # Write the new video file
+        video_clip.write_videofile(output_video_path, codec="libx264", fps=24)
+    finally:
+        # Ensure the audio file is closed and deleted
+        if audio_clip:
+            audio_clip.close()
+        os.remove(audio_path)
+
+    return redirect(url_for('show_video', video_path='static/output_with_audio.mp4'))
+
+@app.route('/show_video')
+def show_video():
+    video_path = request.args.get('video_path')
+    return render_template('show_video.html', video_path=video_path)
 
 if __name__ == "__main__":
     app.run(debug=True)

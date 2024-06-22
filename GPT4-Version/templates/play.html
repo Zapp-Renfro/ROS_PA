@@ -36,7 +36,7 @@
             <div>Fin: <span id="end_time_display">{{ video_duration }}</span></div>
         </div>
         <button id="playSelected" class="play-button">Écouter la sélection</button>
-        <form method="POST" action="{{ url_for('create_video') }}">
+        <form method="POST" action="{{ url_for('create_videos') }}">
             <input type="hidden" name="track_id" value="{{ track_id }}">
             <input type="hidden" name="preview_url" value="{{ preview_url }}">
             <input type="hidden" id="hidden_start_time" name="start_time" value="0">
