@@ -7,17 +7,17 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 
 listen = ['default']
-redis_url = os.getenv('REDIS_URL')
-print(redis_url)
+redis_url = os.getenv('HEROKU_REDIS_GOLD_URL')
+print(redis_url)  # Ajoutez cette ligne pour afficher la valeur de HEROKU_REDIS_GOLD_URL
 
 if not redis_url:
-    raise ValueError("REDIS_URL is not set")
+    raise ValueError("HEROKU_REDIS_GOLD_URL is not set")
 
 logging.debug(f"Connecting to Redis at {redis_url}")
 
 try:
     conn = redis.from_url(redis_url)
-    print(conn.ping())
+    print(conn.ping())  # Ajoutez cette ligne pour tester la connexion
 except Exception as e:
     logging.error(f"Failed to connect to Redis: {e}")
     raise
