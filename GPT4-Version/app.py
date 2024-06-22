@@ -471,8 +471,8 @@ def select_track():
                            preview_url=preview_url, video_duration=video_duration)
 
 
-@app.route('/create_videos', methods=['POST'])
-def create_videos():
+@app.route('/final_video', methods=['POST'])
+def final_video():
     track_id = request.form.get('track_id')
     preview_url = request.form.get('preview_url')
     music_start_time = int(request.form.get('start_time'))

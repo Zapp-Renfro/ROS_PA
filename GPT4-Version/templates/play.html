@@ -36,7 +36,7 @@
             <div>Fin: <span id="end_time_display">{{ video_duration }}</span></div>
         </div>
         <button id="playSelected" class="play-button">Écouter la sélection</button>
-        <form method="POST" action="{{ url_for('create_videos') }}">
+        <form method="POST" action="{{ url_for('final_video') }}">
             <input type="hidden" name="track_id" value="{{ track_id }}">
             <input type="hidden" name="preview_url" value="{{ preview_url }}">
             <input type="hidden" id="hidden_start_time" name="start_time" value="0">
@@ -63,8 +63,12 @@
                 return minutes + ":" + (seconds < 10 ? "0" : "") + seconds;
             }
 
-            audioPlayer.onloadedmetadata = function() {
+            function initializeSlider() {
                 var maxDuration = Math.floor(audioPlayer.duration);
+
+                if (timeSlider.noUiSlider) {
+                    timeSlider.noUiSlider.destroy();
+                }
 
                 noUiSlider.create(timeSlider, {
                     start: [0, duration],
@@ -120,7 +124,13 @@
                         }
                     }, 100);
                 });
+            }
+
+            audioPlayer.onloadedmetadata = function() {
+                initializeSlider();
             };
+
+            audioPlayer.load(); // Force the audio to reload its metadata
         });
     </script>
 </body>
