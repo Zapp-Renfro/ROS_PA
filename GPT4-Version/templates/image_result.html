@@ -11,10 +11,12 @@
                 if (response.status === 202) {
                     // Still processing, retry after a delay
                     setTimeout(() => checkJobStatus(jobId), 2000); // Retry every 2 seconds
-                } else {
+                } else if (response.status === 200) {
                     // Job finished, display results
                     let data = await response.json();
                     displayImages(data.image_urls);
+                } else {
+                    console.error('Unexpected response status:', response.status);
                 }
             } catch (error) {
                 console.error('Error fetching job status:', error);
