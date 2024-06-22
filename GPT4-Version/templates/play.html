@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Play Track</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/14.7.0/nouislider.min.css">
+    <style>
+        .slider {
+            width: 100%;
+            margin-top: 20px;
+        }
+        .time-display {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+        }
+        .play-button {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Jouer la piste sélectionnée</h1>
+        </header>
+        <p>{{ track_name }} par {{ artist_name }}</p>
+        <audio id="audioPlayer" controls>
+            <source src="{{ preview_url }}" type="audio/mpeg">
+            Votre navigateur ne supporte pas l'élément audio.
+        </audio>
+        <div class="slider" id="timeSlider"></div>
+        <div class="time-display">
+            <div>Début: <span id="start_time_display">0:00</span></div>
+            <div>Fin: <span id="end_time_display">{{ video_duration }}</span></div>
+        </div>
+        <button id="playSelected" class="play-button">Écouter la sélection</button>
+        <form method="POST" action="{{ url_for('create_videos') }}">
+            <input type="hidden" name="track_id" value="{{ track_id }}">
+            <input type="hidden" name="preview_url" value="{{ preview_url }}">
+            <input type="hidden" id="hidden_start_time" name="start_time" value="0">
+            <input type="hidden" id="hidden_end_time" name="end_time" value="{{ video_duration }}">
+            <button type="submit">Créer une vidéo</button>
+        </form>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/14.7.0/nouislider.min.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            var audioPlayer = document.getElementById('audioPlayer');
+            var timeSlider = document.getElementById('timeSlider');
+            var hiddenStartTime = document.getElementById('hidden_start_time');
+            var hiddenEndTime = document.getElementById('hidden_end_time');
+            var startTimeDisplay = document.getElementById('start_time_display');
+            var endTimeDisplay = document.getElementById('end_time_display');
+            var playButton = document.getElementById('playSelected');
+            var duration = {{ video_duration }}; // Duration of the video in seconds
+
+            function formatTime(seconds) {
+                var minutes = Math.floor(seconds / 60);
+                var seconds = seconds % 60;
+                return minutes + ":" + (seconds < 10 ? "0" : "") + seconds;
+            }
+
+            audioPlayer.onloadedmetadata = function() {
+                var maxDuration = Math.floor(audioPlayer.duration);
+
+                noUiSlider.create(timeSlider, {
+                    start: [0, duration],
+                    connect: true,
+                    range: {
+                        'min': 0,
+                        'max': maxDuration
+                    },
+                    step: 1,
+                    behaviour: 'tap-drag',
+                });
+
+                timeSlider.noUiSlider.on('update', function(values, handle) {
+                    var startTime = parseInt(values[0]);
+                    var endTime = parseInt(values[1]);
+                    hiddenStartTime.value = startTime;
+                    hiddenEndTime.value = endTime;
+                    startTimeDisplay.textContent = formatTime(startTime);
+                    endTimeDisplay.textContent = formatTime(endTime);
+                });
+
+                timeSlider.noUiSlider.on('slide', function(values, handle) {
+                    var startTime = parseInt(values[0]);
+                    var endTime = parseInt(values[1]);
+
+                    if (handle === 0) {
+                        endTime = startTime + duration;
+                        if (endTime > maxDuration) {
+                            endTime = maxDuration;
+                            startTime = endTime - duration;
+                        }
+                        timeSlider.noUiSlider.set([startTime, endTime]);
+                    } else {
+                        startTime = endTime - duration;
+                        if (startTime < 0) {
+                            startTime = 0;
+                            endTime = startTime + duration;
+                        }
+                        timeSlider.noUiSlider.set([startTime, endTime]);
+                    }
+                });
+
+                playButton.addEventListener('click', function() {
+                    var startTime = parseInt(hiddenStartTime.value);
+                    var endTime = parseInt(hiddenEndTime.value);
+                    audioPlayer.currentTime = startTime;
+                    audioPlayer.play();
+
+                    var playInterval = setInterval(function() {
+                        if (audioPlayer.currentTime >= endTime) {
+                            audioPlayer.pause();
+                            clearInterval(playInterval);
+                        }
+                    }, 100);
+                });
+            };
+        });
+    </script>
+</body>
+</html>

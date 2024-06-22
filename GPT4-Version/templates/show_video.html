@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Show Video</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Vidéo Créée</h1>
+        </header>
+        <video width="640" height="480" controls>
+            <source src="{{ url_for('static', filename=video_path.split('/')[-1]) }}" type="video/mp4">
+            Votre navigateur ne supporte pas l'élément vidéo.
+        </video>
+        <a href="{{ url_for('generate_text') }}">Retour à l'accueil</a>
+    </div>
+</body>
+</html>
