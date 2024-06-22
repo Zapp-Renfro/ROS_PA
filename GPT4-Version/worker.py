@@ -7,11 +7,11 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 
 listen = ['default']
-redis_url = os.getenv('HEROKU_REDIS_GOLD_URL')
-print(redis_url)  # Ajoutez cette ligne pour afficher la valeur de HEROKU_REDIS_GOLD_URL
+redis_url = os.getenv('REDIS_URL')
+print(redis_url)  # Ajoutez cette ligne pour afficher la valeur de REDIS_URL
 
 if not redis_url:
-    raise ValueError("HEROKU_REDIS_GOLD_URL is not set")
+    raise ValueError("REDIS_URL is not set")
 
 logging.debug(f"Connecting to Redis at {redis_url}")
 
