@@ -246,14 +246,13 @@ def generate_images_route():
     prompts = [sentence.strip() for sentence in text.split('.') if sentence.strip()]
     logging.debug(f"Generated prompts: {prompts}")
 
-    # Générer un code unique pour ce groupe de prompts
     code = str(uuid.uuid4())
 
     # Déplacer la génération d'images vers une tâche en arrière-plan
     job = q.enqueue_call(
         func=generate_images_from_prompts, args=(prompts, code), result_ttl=5000
     )
-    return jsonify({'job_id': job.get_id()}), 202
+    return render_template('image_result.html', job_id=job.get_id(), prompts=prompts, code=code)
 
 @app.route('/results/<job_id>', methods=['GET'])
 def get_results(job_id):
