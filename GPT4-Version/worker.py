@@ -1,10 +1,10 @@
 import os
 import redis
-from rq import Worker, Queue
+from rq import Worker, Queue  # Modification ici
 import logging
 
 # Configure logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basic(level=logging.DEBUG)
 
 listen = ['default', 'high', 'low']
 
@@ -23,8 +23,9 @@ except Exception as e:
 if __name__ == '__main__':
     logging.debug("Starting worker")
     try:
-        queues = list(map(Queue, listen))
-        worker = Worker(queues, connection=conn)
+        # Explicitly set the connection for each queue
+        queues = [Queue(name, connection=conn) for name in listen]  # Modification ici
+        worker = Worker(queues, connection=conn)  # Modification ici
         worker.work()
     except Exception as e:
         logging.error(f"Worker crashed: {e}")
