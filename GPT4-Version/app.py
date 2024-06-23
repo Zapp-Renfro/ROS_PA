@@ -114,57 +114,60 @@ def generate_images_from_prompts(prompts, code):
 
 def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
                   outline_color=(0, 0, 0), shadow_color=(50, 50, 50), max_width=None):
+    logging.debug("Entering text_to_image function")
     image = Image.fromarray(img_array)
     draw = ImageDraw.Draw(image)
     try:
         font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
         font = ImageFont.truetype(font_path, font_size)
+        logging.debug(f"Font loaded: {font_path} with size {font_size}")
     except IOError:
         font = ImageFont.load_default()
+        logging.warning("Font not found, using default font")
 
-    # Diviser le texte en lignes pour qu'il s'adapte à la largeur de l'image
     if max_width is None:
         max_width = image.width - 40  # Ajouter une marge de 20 pixels de chaque côté
+    logging.debug(f"Max width for text: {max_width}")
 
     lines = []
     words = text.split()
     current_line = ""
     for word in words:
         test_line = f"{current_line} {word}".strip()
-        text_width, _ = draw.textsize(test_line, font=font)
+        text_bbox = draw.textbbox((0, 0), test_line, font=font)
+        text_width = text_bbox[2] - text_bbox[0]
         if text_width <= max_width:
             current_line = test_line
         else:
             lines.append(current_line)
             current_line = word
     lines.append(current_line)
+    logging.debug(f"Text split into lines: {lines}")
 
-    # Calculer la position du texte pour qu'il soit centré verticalement
-    total_text_height = sum([draw.textsize(line, font=font)[1] for line in lines])
+    total_text_height = sum(
+        [draw.textbbox((0, 0), line, font=font)[3] - draw.textbbox((0, 0), line, font=font)[1] for line in lines])
     current_height = (image.height - total_text_height) / 2
 
     for line in lines:
-        text_width, text_height = draw.textsize(line, font=font)
+        text_bbox = draw.textbbox((0, 0), line, font=font)
+        text_width = text_bbox[2] - text_bbox[0]
+        text_height = text_bbox[3] - text_bbox[1]
         text_position = ((image.width - text_width) / 2, current_height)
+        logging.debug(f"Drawing text: {line} at position {text_position}")
 
-        # Dessiner l'ombre
         shadow_offset = 2
         draw.text((text_position[0] + shadow_offset, text_position[1] + shadow_offset), line, font=font,
                   fill=shadow_color)
-
-        # Dessiner le contour
         outline_range = 1
         for x in range(-outline_range, outline_range + 1):
             for y in range(-outline_range, outline_range + 1):
                 if x != 0 or y != 0:
                     draw.text((text_position[0] + x, text_position[1] + y), line, font=font, fill=outline_color)
-
-        # Dessiner le texte
         draw.text(text_position, line, font=font, fill=text_color)
 
-        # Passer à la ligne suivante
         current_height += text_height
 
+    logging.debug("Exiting text_to_image function")
     return np.array(image)
 
 
