@@ -10,3 +10,4 @@ supabase==2.4.6
 requests==2.31.0
 Pillow==10.3.0
 boto3==1.24.27
+numpy==1.26.4

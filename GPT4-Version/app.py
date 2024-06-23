@@ -2,7 +2,8 @@ from flask import Flask, request, render_template, jsonify
 from diffusers import StableDiffusionPipeline
 from datetime import datetime
 import os
-from moviepy.editor import ImageClip, TextClip, CompositeVideoClip, concatenate_videoclips, AudioFileClip, concatenate_audioclips, CompositeAudioClip
+from moviepy.editor import ImageClip, TextClip, CompositeVideoClip, concatenate_videoclips, AudioFileClip, \
+    concatenate_audioclips, CompositeAudioClip
 from gtts import gTTS
 from supabase import create_client, Client
 import requests
@@ -19,6 +20,14 @@ import logging
 import time
 from requests.exceptions import HTTPError
 import boto3
+# Load model directly
+from transformers import AutoModel, pipeline, AutoProcessor, AutoModelForTextToSpectrogram, SpeechT5HifiGan
+from datasets import load_dataset
+import soundfile as sf
+import torch
+import json
+from pydub import AudioSegment
+
 
 HUGGINGFACE_API_TOKEN = "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"
 API_URL_IMAGE = "https://api-inference.huggingface.co/models/dataautogpt3/ProteusV0.2"
@@ -44,6 +53,7 @@ AWS_ACCESS_KEY_ID = 'AKIAVRUVT3YMY5C23CNL'
 AWS_SECRET_ACCESS_KEY = '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'
 AWS_REGION = 'eu-west-1'
 
+
 def text_to_speech(text, output_filename, voice_id='Joanna'):
     logging.debug(f"Using voice_id: {voice_id}")
     polly_client = boto3.Session(
@@ -61,6 +71,23 @@ def text_to_speech(text, output_filename, voice_id='Joanna'):
     with open(output_filename, 'wb') as file:
         file.write(response['AudioStream'].read())
 
+
+def text_to_speech_huggingface(text, output_filename):
+    processor = AutoProcessor.from_pretrained("microsoft/speecht5_tts")
+    model = AutoModelForTextToSpectrogram.from_pretrained("microsoft/speecht5_tts")
+    vocoder = SpeechT5HifiGan.from_pretrained("microsoft/speecht5_hifigan")
+
+    inputs = processor(text=text, return_tensors="pt")
+
+    # load xvector containing speaker's voice characteristics from a dataset
+    embeddings_dataset = load_dataset("Matthijs/cmu-arctic-xvectors", split="validation")
+    speaker_embeddings = torch.tensor(embeddings_dataset[7306]["xvector"]).unsqueeze(0)
+
+    speech = model.generate_speech(inputs["input_ids"], speaker_embeddings, vocoder=vocoder)
+    sf.write(output_filename, speech.numpy(), samplerate=16000)
+
+
+
 def format_response(chat_history):
     formatted_text = ""
     for entry in chat_history:
@@ -69,6 +96,7 @@ def format_response(chat_history):
         elif entry['role'] == 'assistant':
             formatted_text += f"<b>Réponse:</b> {entry['content']}<br><br>"
     return formatted_text
+
 
 def generate_images_from_prompts(prompts, code):
     filenames = []
@@ -105,7 +133,8 @@ def generate_images_from_prompts(prompts, code):
                         image_blob = img_byte_arr.read()
 
                     # Stocker l'image dans Supabase
-                    data = {"prompt_text": prompt, "filename": filename, "image_blob": base64.b64encode(image_blob).decode('utf-8'), "code": code}
+                    data = {"prompt_text": prompt, "filename": filename,
+                            "image_blob": base64.b64encode(image_blob).decode('utf-8'), "code": code}
                     logging.debug(f"Data to insert into images: {data}")
                     try:
                         supabase.table('images').insert(data).execute()
@@ -129,6 +158,7 @@ def generate_images_from_prompts(prompts, code):
                 break
 
     return filenames
+
 
 def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
                   outline_color=(0, 0, 0), shadow_color=(50, 50, 50), max_width=None):
@@ -188,7 +218,9 @@ def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
     logging.debug("Exiting text_to_image function")
     return np.array(image)
 
-def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Matthew'):
+
+def create_video_with_text(images_data, output_video, prompts, fps=1,
+                           audio_path='static/music/relaxing-piano-201831.mp3'):
     audio_clips = []
     video_clips = []
 
@@ -201,7 +233,7 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
 
     for img_data, prompt in zip(images_data, prompts):
         audio_filename = os.path.join(audio_dir, f"{prompt[:10]}_audio.mp3")
-        text_to_speech(prompt, audio_filename, voice_id)
+        text_to_speech_huggingface(prompt, audio_filename)
         speech_clip = AudioFileClip(audio_filename)
 
         image = Image.open(img_data).convert('RGBA')
@@ -230,6 +262,7 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
 
     for audio_file in os.listdir(audio_dir):
         os.remove(os.path.join(audio_dir, audio_file))
+
 
 @app.route('/create_video', methods=['GET'])
 def create_video_endpoint():
@@ -265,7 +298,7 @@ def create_video_endpoint():
     if not os.path.exists('static/videos'):
         os.makedirs('static/videos')
 
-    create_video_with_text(images_data, output_video, prompts, audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Matthew')
+    create_video_with_text(images_data, output_video, prompts, audio_path='static/music/relaxing-piano-201831.mp3')
 
     with open(output_video, 'rb') as video_file:
         video_blob = video_file.read()
@@ -284,6 +317,7 @@ def create_video_endpoint():
         video_url = None
 
     return render_template('video_result.html', video_url=video_url)
+
 
 @app.route('/', methods=['GET', 'POST'])
 def generate_text():
@@ -324,6 +358,7 @@ def generate_text():
     else:
         return render_template('index.html')
 
+
 @app.route('/history', methods=['GET'])
 def get_history():
     try:
@@ -332,6 +367,7 @@ def get_history():
     except Exception as e:
         logging.error(f"Error fetching data from prompts: {str(e)}")
         return jsonify({"error": str(e)}), 400
+
 
 @app.route('/generate_images', methods=['POST'])
 def generate_images_route():
@@ -346,6 +382,7 @@ def generate_images_route():
         func=generate_images_from_prompts, args=(prompts, code), result_ttl=5000
     )
     return render_template('image_result.html', job_id=job.get_id(), prompts=prompts, code=code)
+
 
 @app.route('/results/<job_id>', methods=['GET'])
 def get_results(job_id):
@@ -362,6 +399,7 @@ def get_results(job_id):
         return jsonify({"image_urls": image_urls}), 200
     else:
         return "Still processing", 202
+
 
 @app.route('/api/generate_text', methods=['POST'])
 def api_generate_text():
@@ -394,6 +432,7 @@ def api_generate_text():
 
     return jsonify({"response": generated_text}), 200
 
+
 @app.route('/api/generate_images', methods=['POST'])
 def api_generate_images():
     data = request.get_json()
@@ -407,5 +446,8 @@ def api_generate_images():
     )
     return jsonify({'job_id': job.get_id()}), 202
 
+
 if __name__ == "__main__":
     app.run(debug=True)
+
+
