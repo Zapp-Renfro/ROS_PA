@@ -2,17 +2,16 @@ from flask import Flask, request, render_template, jsonify, session, url_for, re
 from diffusers import StableDiffusionPipeline
 from datetime import datetime
 import os
-from moviepy.editor import ImageClip, TextClip, CompositeVideoClip, concatenate_videoclips, AudioFileClip, concatenate_audioclips, CompositeAudioClip
+from moviepy.editor import ImageClip, TextClip, CompositeVideoClip, concatenate_videoclips, AudioFileClip, \
+    concatenate_audioclips, CompositeAudioClip
 from gtts import gTTS
 from moviepy.video.io.VideoFileClip import VideoFileClip
-
 from supabase import create_client, Client
 import requests
 import base64
 from io import BytesIO
 from PIL import Image, ImageDraw, ImageFont
 import random
-from PIL import Image
 import numpy as np
 import uuid
 from rq import Queue
@@ -22,13 +21,33 @@ import logging
 import time
 from requests.exceptions import HTTPError
 import tempfile
-
+import boto3
+# Load model directly
+from transformers import AutoModel, pipeline, AutoProcessor, AutoModelForTextToSpectrogram, SpeechT5HifiGan
+from datasets import load_dataset
+import soundfile as sf
+import torch
+import json
+from pydub import AudioSegment
 
 
 JAMENDO_CLIENT_ID = "1fe12850"
 HUGGINGFACE_API_TOKEN = "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"  # Remplacez
+
+import boto3
+# Load model directly
+from transformers import AutoModel, pipeline, AutoProcessor, AutoModelForTextToSpectrogram, SpeechT5HifiGan
+from datasets import load_dataset
+import soundfile as sf
+import torch
+import json
+from pydub import AudioSegment
+
+
+
 API_URL_IMAGE = "https://api-inference.huggingface.co/models/dataautogpt3/ProteusV0.2"
 API_URL_IMAGE_V2 = "https://api-inference.huggingface.co/models/alvdansen/BandW-Manga"
+API_URL_IMAGE_V3 = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0"
 
 # Initialisation de l'application Flask
 app = Flask(__name__)
@@ -40,11 +59,12 @@ app.secret_key = 'votre_cle_secrete'
 logging.basicConfig(level=logging.DEBUG)
 
 # Initialisation de Supabase
-SUPABASE_URL = 'https://lpfjfbvhhckrnzdfezgd.supabase.co'  # Remplacez par votre URL Supabase sans slash final
-SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxwZmpmYnZoaGNrcm56ZGZlemdkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTY2NTYyMzEsImV4cCI6MjAzMjIzMjIzMX0.xXvve7bQ0lSz38CT9s9iQF3VlPo-vKbCy5Vw3Zhl84c'  # Remplacez par votre clé API publique
+SUPABASE_URL = 'https://lpfjfbvhhckrnzdfezgd.supabase.co'
+SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxwZmpmYnZoaGNrcm56ZGZlemdkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTY2NTYyMzEsImV4cCI6MjAzMjIzMjIzMX0.xXvve7bQ0lSz38CT9s9iQF3VlPo-vKbCy5Vw3Zhl84c'
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 HEADERS_LIST = [{"Authorization": f"Bearer {HUGGINGFACE_API_TOKEN}"}]
+
 
 mood = "bad"
 def search_music_by_mood(mood):
@@ -83,9 +103,22 @@ def upload_video_to_supabase(file_path, file_name):
         res = supabase.storage().from_('videos').upload(file_name, file)
     return res
 
-def text_to_speech(text, output_filename):
-    tts = gTTS(text=text, lang='en')
-    tts.save(output_filename)
+
+def text_to_speech_huggingface(text, output_filename):
+    processor = AutoProcessor.from_pretrained("microsoft/speecht5_tts")
+    model = AutoModelForTextToSpectrogram.from_pretrained("microsoft/speecht5_tts")
+    vocoder = SpeechT5HifiGan.from_pretrained("microsoft/speecht5_hifigan")
+
+    inputs = processor(text=text, return_tensors="pt")
+
+    # load xvector containing speaker's voice characteristics from a dataset
+    embeddings_dataset = load_dataset("Matthijs/cmu-arctic-xvectors", split="validation")
+    speaker_embeddings = torch.tensor(embeddings_dataset[7306]["xvector"]).unsqueeze(0)
+
+    speech = model.generate_speech(inputs["input_ids"], speaker_embeddings, vocoder=vocoder)
+    sf.write(output_filename, speech.numpy(), samplerate=16000)
+
+
 
 def format_response(chat_history):
     formatted_text = ""
@@ -95,6 +128,7 @@ def format_response(chat_history):
         elif entry['role'] == 'assistant':
             formatted_text += f"<b>Réponse:</b> {entry['content']}<br><br>"
     return formatted_text
+
 
 def generate_images_from_prompts(prompts, code):
     filenames = []
@@ -106,7 +140,7 @@ def generate_images_from_prompts(prompts, code):
         for attempt in range(max_retries):
             try:
                 logging.debug(f"Sending request to Hugging Face API with prompt: {prompt}")
-                response = requests.post(API_URL_IMAGE_V2, headers=headers, json={"inputs": prompt})
+                response = requests.post(API_URL_IMAGE_V3, headers=headers, json={"inputs": prompt})
                 logging.debug(f"Response status code: {response.status_code}")
                 response.raise_for_status()
 
@@ -131,7 +165,8 @@ def generate_images_from_prompts(prompts, code):
                         image_blob = img_byte_arr.read()
 
                     # Stocker l'image dans Supabase
-                    data = {"prompt_text": prompt, "filename": filename, "image_blob": base64.b64encode(image_blob).decode('utf-8'), "code": code}
+                    data = {"prompt_text": prompt, "filename": filename,
+                            "image_blob": base64.b64encode(image_blob).decode('utf-8'), "code": code}
                     logging.debug(f"Data to insert into images: {data}")
                     try:
                         supabase.table('images').insert(data).execute()
@@ -171,6 +206,7 @@ def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
 
     if max_width is None:
         max_width = image.width - 40  # Ajouter une marge de 20 pixels de chaque côté
+
     logging.debug(f"Max width for text: {max_width}")
 
     lines = []
@@ -214,26 +250,27 @@ def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
     logging.debug("Exiting text_to_image function")
     return np.array(image)
 
+#elisabeth
 def create_video_with_text(images_data, output_video, prompts, fps=1,
                            audio_path='static/music/relaxing-piano-201831.mp3'):
     audio_clips = []
     video_clips = []
 
-    # Créer un répertoire pour stocker les fichiers audio
     audio_dir = 'static/audio'
     if not os.path.exists(audio_dir):
         os.makedirs(audio_dir)
 
+    for audio_file in os.listdir(audio_dir):
+        os.remove(os.path.join(audio_dir, audio_file))
+
     for img_data, prompt in zip(images_data, prompts):
         audio_filename = os.path.join(audio_dir, f"{prompt[:10]}_audio.mp3")
-        text_to_speech(prompt, audio_filename)
+        text_to_speech_huggingface(prompt, audio_filename)
         speech_clip = AudioFileClip(audio_filename)
 
-        # Convertir les données d'image en tableau NumPy
         image = Image.open(img_data).convert('RGBA')
         img_array = np.array(image)
 
-        # Ajouter le texte directement sur l'image avec les améliorations
         img_with_text = text_to_image(img_array, prompt, font_size=48)
 
         img_clip = ImageClip(img_with_text).set_duration(speech_clip.duration)
@@ -253,97 +290,11 @@ def create_video_with_text(images_data, output_video, prompts, fps=1,
     final_audio = CompositeAudioClip([background_music, final_audio.set_duration(background_music.duration)])
     final_video = final_video.set_audio(final_audio)
 
-    # Écrire la vidéo finale dans un fichier
     final_video.write_videofile(output_video, fps=fps, codec='libx264')
 
-    # Nettoyer les fichiers audio temporaires
     for audio_file in os.listdir(audio_dir):
         os.remove(os.path.join(audio_dir, audio_file))
 
-@app.route('/', methods=['GET', 'POST'])
-def generate_text():
-    if request.method == 'POST':
-        prompt = request.form['prompt']
-
-        # Appel à l'API de Hugging Face avec le modèle gpt-neo-2.7B
-        API_URL_TEXT = "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1"
-        API_TOKEN = "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"  # Remplacez par votre jeton API Hugging Face
-        headers = {"Authorization": f"Bearer {API_TOKEN}"}
-
-        # Log the request for debugging purposes
-        logging.debug(f"Sending request to Hugging Face API with prompt: {prompt}")
-
-        response = requests.post(API_URL_TEXT, headers=headers, json={"inputs": prompt})
-
-        # Log the response status code and content for debugging purposes
-        logging.debug(f"Hugging Face API response status: {response.status_code}")
-        logging.debug(f"Hugging Face API response content: {response.content}")
-
-        if response.status_code != 200:
-            return jsonify({"error": "Failed to generate response from model"}), response.status_code
-
-        response_json = response.json()
-        logging.debug(f"Hugging Face API response JSON: {response_json}")
-
-        # Handling different possible response structures
-        if isinstance(response_json, list) and len(response_json) > 0 and 'generated_text' in response_json[0]:
-            generated_text = response_json[0]['generated_text']
-        else:
-            generated_text = 'No response'
-
-        # Stocker dans Supabase
-        data = {"prompt": prompt, "response": generated_text}
-        logging.debug(f"Data to insert into prompts: {data}")
-        try:
-            supabase.table('prompts').insert(data).execute()
-        except Exception as e:
-            logging.error(f"Error inserting data into prompts: {str(e)}")
-            return jsonify({"error": str(e)}), 400
-
-        return render_template('result.html', response=generated_text, image_prompt=generated_text)
-    else:
-        return render_template('index.html')
-
-@app.route('/history', methods=['GET'])
-def get_history():
-    try:
-        response = supabase.table('prompts').select('*').execute()
-        return render_template('history.html', data=response.data)
-    except Exception as e:
-        logging.error(f"Error fetching data from prompts: {str(e)}")
-        return jsonify({"error": str(e)}), 400
-
-@app.route('/generate_images', methods=['POST'])
-def generate_images_route():
-    text = request.form['text']
-    logging.debug(f"Received text for image generation: {text}")
-    prompts = [sentence.strip() for sentence in text.split('.') if sentence.strip()]
-    logging.debug(f"Generated prompts: {prompts}")
-
-    code = str(uuid.uuid4())
-
-    # Déplacer la génération d'images vers une tâche en arrière-plan
-    job = q.enqueue_call(
-        func=generate_images_from_prompts, args=(prompts, code), result_ttl=5000
-    )
-    return render_template('image_result.html', job_id=job.get_id(), prompts=prompts, code=code)
-
-@app.route('/results/<job_id>', methods=['GET'])
-def get_results(job_id):
-    job = Job.fetch(job_id, connection=conn)
-    if job.is_finished:
-        # Fetch image URLs from Supabase
-        code = job.args[1]
-        response = supabase.table('images').select('image_blob').eq('code', code).execute()
-        image_urls = []
-        if response.data:
-            for img in response.data:
-                image_blob = img.get('image_blob')
-                if image_blob:
-                    image_urls.append(f"data:image/png;base64,{image_blob}")
-        return jsonify({"image_urls": image_urls}), 200
-    else:
-        return "Still processing", 202
 
 @app.route('/create_video', methods=['GET'])
 def create_video():
@@ -356,7 +307,6 @@ def create_video():
 
     logging.info(f"Creating video for code: {code} with prompts: {prompts}")
 
-    # Récupérer les images depuis Supabase avec le code
     response = supabase.table('images').select('image_blob').eq('code', code).execute()
     if response.data:
         images_data = []
@@ -380,10 +330,8 @@ def create_video():
     if not os.path.exists('static/videos'):
         os.makedirs('static/videos')
 
-    # Créer la vidéo avec les images récupérées
     create_video_with_text(images_data, output_video, prompts, audio_path='static/music/relaxing-piano-201831.mp3')
-    session['video_path'] = output_video
-    # Obtenir le lien de la vidéo stockée dans Supabase
+
     with open(output_video, 'rb') as video_file:
         video_blob = video_file.read()
     video_base64 = base64.b64encode(video_blob).decode('utf-8')
@@ -402,7 +350,89 @@ def create_video():
 
     return render_template('video_result.html', video_url=video_url)
 
-# API Endpoints
+
+@app.route('/', methods=['GET', 'POST'])
+def generate_text():
+    if request.method == 'POST':
+        prompt = request.form['prompt']
+
+        API_URL_TEXT = "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1"
+        API_TOKEN = "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"
+        headers = {"Authorization": f"Bearer {API_TOKEN}"}
+
+        logging.debug(f"Sending request to Hugging Face API with prompt: {prompt}")
+
+        response = requests.post(API_URL_TEXT, headers=headers, json={"inputs": prompt})
+
+        logging.debug(f"Hugging Face API response status: {response.status_code}")
+        logging.debug(f"Hugging Face API response content: {response.content}")
+
+        if response.status_code != 200:
+            return jsonify({"error": "Failed to generate response from model"}), response.status_code
+
+        response_json = response.json()
+        logging.debug(f"Hugging Face API response JSON: {response_json}")
+
+        if isinstance(response_json, list) and len(response_json) > 0 and 'generated_text' in response_json[0]:
+            generated_text = response_json[0]['generated_text']
+        else:
+            generated_text = 'No response'
+
+        data = {"prompt": prompt, "response": generated_text}
+        logging.debug(f"Data to insert into prompts: {data}")
+        try:
+            supabase.table('prompts').insert(data).execute()
+        except Exception as e:
+            logging.error(f"Error inserting data into prompts: {str(e)}")
+            return jsonify({"error": str(e)}), 400
+
+        return render_template('result.html', response=generated_text, image_prompt=generated_text)
+    else:
+        return render_template('index.html')
+
+
+@app.route('/history', methods=['GET'])
+def get_history():
+    try:
+        response = supabase.table('prompts').select('*').execute()
+        return render_template('history.html', data=response.data)
+    except Exception as e:
+        logging.error(f"Error fetching data from prompts: {str(e)}")
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route('/generate_images', methods=['POST'])
+def generate_images_route():
+    text = request.form['text']
+    logging.debug(f"Received text for image generation: {text}")
+    prompts = [sentence.strip() for sentence in text.split('.') if sentence.strip()]
+    logging.debug(f"Generated prompts: {prompts}")
+
+    code = str(uuid.uuid4())
+
+    job = q.enqueue_call(
+        func=generate_images_from_prompts, args=(prompts, code), result_ttl=5000
+    )
+    return render_template('image_result.html', job_id=job.get_id(), prompts=prompts, code=code)
+
+
+@app.route('/results/<job_id>', methods=['GET'])
+def get_results(job_id):
+    job = Job.fetch(job_id, connection=conn)
+    if job.is_finished:
+        code = job.args[1]
+        response = supabase.table('images').select('image_blob').eq('code', code).execute()
+        image_urls = []
+        if response.data:
+            for img in response.data:
+                image_blob = img.get('image_blob')
+                if image_blob:
+                    image_urls.append(f"data:image/png;base64,{image_blob}")
+        return jsonify({"image_urls": image_urls}), 200
+    else:
+        return "Still processing", 202
+
+
 @app.route('/api/generate_text', methods=['POST'])
 def api_generate_text():
     data = request.get_json()
@@ -410,12 +440,10 @@ def api_generate_text():
     if not prompt:
         return jsonify({"error": "Prompt is required"}), 400
 
-    # Appel à l'API de Hugging Face avec le modèle gpt-neo-2.7B
     API_URL = "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1"
-    API_TOKEN = "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"  # Remplacez par votre jeton API Hugging Face
+    API_TOKEN = "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"
     headers = {"Authorization": f"Bearer {API_TOKEN}"}
 
-    # Log the request for debugging purposes
     logging.debug(f"Sending request to Hugging Face API with prompt: {prompt}")
 
     response = requests.post(API_URL, headers=headers, json={"inputs": prompt})
@@ -429,13 +457,13 @@ def api_generate_text():
     response_json = response.json()
     logging.debug(f"Hugging Face API response JSON: {response_json}")
 
-    # Handling different possible
     if isinstance(response_json, list) and len(response_json) > 0 and 'generated_text' in response_json[0]:
         generated_text = response_json[0]['generated_text']
     else:
         generated_text = 'No response'
 
     return jsonify({"response": generated_text}), 200
+
 
 @app.route('/api/generate_images', methods=['POST'])
 def api_generate_images():
@@ -449,6 +477,7 @@ def api_generate_images():
         func=generate_images_from_prompts, args=(prompts, code), result_ttl=5000
     )
     return jsonify({'job_id': job.get_id()}), 202
+
 
 @app.route('/music_choice', methods=['GET', 'POST'])
 def music_choice():
@@ -584,6 +613,7 @@ def show_video():
         return "Vidéo non trouvée.", 404
 
     return render_template('show_video.html', video_path=video_path)
+
 
 if __name__ == "__main__":
     app.run(debug=True)
