@@ -9,6 +9,6 @@ gTTS==2.5.1
 supabase==2.4.6
 requests==2.31.0
 Pillow==10.3.0
-mistral_common==0.1.0
+mistral_common==1.2.0
 transformers==4.18.0
 torch==1.10.2
