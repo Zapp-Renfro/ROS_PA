@@ -22,12 +22,6 @@ import logging
 import time
 from requests.exceptions import HTTPError
 import tempfile
-from mistral_common.tokens.tokenizers.mistral import MistralTokenizer
-from mistral_common.protocol.instruct.messages import UserMessage
-from mistral_common.protocol.instruct.request import ChatCompletionRequest
-from mistral_inference.model import Transformer
-from mistral_inference.generate import generate
-from transformers import AutoModelForCausalLM, AutoTokenizer
 
 JAMENDO_CLIENT_ID = "1fe12850"
 HUGGINGFACE_API_TOKEN = "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"  # Remplacez
@@ -258,55 +252,38 @@ def create_video_with_text(images_data, output_video, prompts, fps=1,
     for audio_file in os.listdir(audio_dir):
         os.remove(os.path.join(audio_dir, audio_file))
 
-
-
-# Initialize tokenizer and model for Mistral
-mistral_models_path = "MISTRAL_MODELS_PATH"
-tokenizer = MistralTokenizer.v1()
-model = Transformer.from_folder(mistral_models_path)
-
-# Load Hugging Face model and tokenizer
-hf_model_name = "mistralai/Mixtral-8x7B-Instruct-v0.1"
-hf_tokenizer = AutoTokenizer.from_pretrained(hf_model_name)
-hf_model = AutoModelForCausalLM.from_pretrained(hf_model_name)
-hf_model.to("cuda")
-
-
-def generate_text_within_character_limit(prompt, min_chars=700, max_chars=1000):
-    tokens = hf_tokenizer(prompt, return_tensors="pt").input_ids.to("cuda")
-    generated_ids = hf_model.generate(tokens, max_new_tokens=max_chars // 4, do_sample=True)
-
-    result = hf_tokenizer.decode(generated_ids[0], skip_special_tokens=True)
-
-    # Ensure result is within character limits
-    if len(result) > max_chars:
-        truncated_result = result[:max_chars]
-        last_sentence_end = truncated_result.rfind('.')
-        if last_sentence_end == -1:
-            last_sentence_end = max_chars
-        result = truncated_result[:last_sentence_end + 1]
-
-    elif len(result) < min_chars:
-        result = result.ljust(min_chars)
-
-    return result
-
-
 @app.route('/', methods=['GET', 'POST'])
 def generate_text():
     if request.method == 'POST':
         prompt = request.form['prompt']
 
+        # Appel à l'API de Hugging Face avec le modèle gpt-neo-2.7B
+        API_URL_TEXT = "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1"
+        API_TOKEN = "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"  # Remplacez par votre jeton API Hugging Face
+        headers = {"Authorization": f"Bearer {API_TOKEN}"}
+
         # Log the request for debugging purposes
-        logging.debug(f"Received prompt: {prompt}")
+        logging.debug(f"Sending request to Hugging Face API with prompt: {prompt}")
 
-        # Generate text using the custom function
-        generated_text = generate_text_within_character_limit(prompt)
+        response = requests.post(API_URL_TEXT, headers=headers, json={"inputs": prompt})
 
-        # Log the generated text
-        logging.debug(f"Generated text: {generated_text}")
+        # Log the response status code and content for debugging purposes
+        logging.debug(f"Hugging Face API response status: {response.status_code}")
+        logging.debug(f"Hugging Face API response content: {response.content}")
 
-        # Store in Supabase
+        if response.status_code != 200:
+            return jsonify({"error": "Failed to generate response from model"}), response.status_code
+
+        response_json = response.json()
+        logging.debug(f"Hugging Face API response JSON: {response_json}")
+
+        # Handling different possible response structures
+        if isinstance(response_json, list) and len(response_json) > 0 and 'generated_text' in response_json[0]:
+            generated_text = response_json[0]['generated_text']
+        else:
+            generated_text = 'No response'
+
+        # Stocker dans Supabase
         data = {"prompt": prompt, "response": generated_text}
         logging.debug(f"Data to insert into prompts: {data}")
         try:
