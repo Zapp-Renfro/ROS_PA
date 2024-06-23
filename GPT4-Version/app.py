@@ -22,6 +22,8 @@ import logging
 import time
 from requests.exceptions import HTTPError
 import tempfile
+import moviepy.editor as mpe
+from moviepy.editor import TextClip, CompositeVideoClip
 
 
 
@@ -241,6 +243,9 @@ def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
     logging.debug("Exiting text_to_image function")
     return np.array(image)
 
+import moviepy.editor as mpe
+from moviepy.video.VideoClip import TextClip, CompositeVideoClip
+
 def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Miguel'):
     audio_clips = []
     video_clips = []
@@ -260,10 +265,17 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
         image = Image.open(img_data).convert('RGBA')
         img_array = np.array(image)
 
-        img_with_text = text_to_image(img_array, prompt, font_size=48)
+        # Create the video clip with text appearing in sync with the audio
+        segments = split_text_into_segments(prompt, speech_clip.duration)
+        duration_per_segment = speech_clip.duration / len(segments)
+        subclips = []
 
-        img_clip = ImageClip(img_with_text).set_duration(speech_clip.duration)
-        video = img_clip.set_audio(speech_clip)
+        for i, segment in enumerate(segments):
+            img_with_text = text_to_image(img_array, segment, font_size=48)
+            img_clip = ImageClip(img_with_text).set_duration(duration_per_segment).set_start(i * duration_per_segment)
+            subclips.append(img_clip)
+
+        video = CompositeVideoClip(subclips).set_audio(speech_clip)
         video_clips.append(video)
         audio_clips.append(speech_clip)
 
@@ -283,6 +295,13 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
 
     for audio_file in os.listdir(audio_dir):
         os.remove(os.path.join(audio_dir, audio_file))
+
+def split_text_into_segments(text, duration):
+    words = text.split()
+    num_segments = int(duration * 2)  # For simplicity, 2 segments per second
+    segment_length = max(1, len(words) // num_segments)
+    segments = [" ".join(words[i:i + segment_length]) for i in range(0, len(words), segment_length)]
+    return segments
 
 
 @app.route('/create_video', methods=['GET'])
