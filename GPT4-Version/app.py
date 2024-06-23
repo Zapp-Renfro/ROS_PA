@@ -77,6 +77,11 @@ def download_audio_preview(url):
         return temp_file.name
     return None
 
+def upload_video_to_supabase(file_path, file_name):
+    with open(file_path, 'rb') as file:
+        res = supabase.storage().from_('videos').upload(file_name, file)
+    return res
+
 def text_to_speech(text, output_filename):
     tts = gTTS(text=text, lang='en')
     tts.save(output_filename)
@@ -501,7 +506,6 @@ def select_track():
     return render_template('play.html', track_id=track_id, track_name=track_name, artist_name=artist_name,
                            preview_url=preview_url, video_duration=video_duration)
 
-
 @app.route('/final_video', methods=['POST'])
 def final_video():
     track_id = request.form.get('track_id')
@@ -534,29 +538,48 @@ def final_video():
     if not audio_path:
         return "Aperçu audio non trouvé.", 404
 
-        # Create a temporary file for the new video with audio
-        output_video_path = os.path.join('static', 'output_with_audio.mp4')
-        audio_clip = None
+    # Create a temporary file for the new video with audio
+    output_video_path = os.path.join('static', 'output_video_music.mp4')
+    audio_clip = None
     try:
+        # Load the existing video clip
+        video_clip = VideoFileClip(video_path).subclip(0, music_segment_duration)
+        # Add the audio file to the video
+        audio_clip = AudioFileClip(audio_path).subclip(music_start_time, music_end_time)
         video_clip = video_clip.set_audio(audio_clip)
         # Write the new video file
         video_clip.write_videofile(output_video_path, codec="libx264", fps=24)
-        session['new_video_path'] = output_video_path
     finally:
         # Ensure the audio file is closed and deleted
         if audio_clip:
             audio_clip.close()
         os.remove(audio_path)
-    return redirect(url_for('show_video'))
+
+    # Save the new video to Supabase
+    with open(output_video_path, 'rb') as video_file:
+        video_blob = video_file.read()
+    video_base64 = base64.b64encode(video_blob).decode('utf-8')
+
+    video_data = {
+        "filename": os.path.basename(output_video_path),
+        "video_blob": video_base64
+    }
+
+    try:
+        supabase.table('videos').insert(video_data).execute()
+        video_url = f"data:video/mp4;base64,{video_base64}"
+    except Exception as e:
+        logging.error(f"Error inserting video data into Supabase: {e}")
+        video_url = None
+
+    return redirect(url_for('show_video'), video_url=video_url)
 
 
-app.route('/show_video')
+
+@app.route('/show_video')
 def show_video():
-    video_path = session.get('new_video_path')
-    if not video_path or not os.path.exists(video_path):
-        return "Vidéo non trouvée.", 404
-
-    return render_template('video_result.html', video_path=video_path)
+    video_path = request.args.get('video_path')
+    return render_template('show_video.html', video_path=video_path)
 
 if __name__ == "__main__":
     app.run(debug=True)
