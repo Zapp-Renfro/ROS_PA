@@ -272,7 +272,7 @@ def generate_text():
         # Log the request for debugging purposes
         logging.debug(f"Sending request to Hugging Face API with prompt: {prompt}")
 
-        response = requests.post(API_URL_TEXT, headers=headers, json={"inputs": prompt})
+        response = requests.post(API_URL_TEXT, headers=headers, json={"inputs": prompt, "max_tokens": 1024})
 
         # Log the response status code and content for debugging purposes
         logging.debug(f"Hugging Face API response status: {response.status_code}")
