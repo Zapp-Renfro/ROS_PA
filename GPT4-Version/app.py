@@ -46,7 +46,7 @@ AWS_SECRET_ACCESS_KEY = 'RPEQw0rg7rjArpri1Ti7QsotqSCgJnUurw3dYZmt'
 AWS_REGION = 'eu-west-1'
 
 def text_to_speech(text, output_filename):
-    # Initialiser le client Polly
+    # Initialiser le client Pollym
     polly_client = boto3.Session(
         aws_access_key_id=AWS_ACCESS_KEY_ID,
         aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
