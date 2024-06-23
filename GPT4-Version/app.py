@@ -22,6 +22,10 @@ import logging
 import time
 from requests.exceptions import HTTPError
 import tempfile
+from flask_compress import Compress
+
+
+
 
 JAMENDO_CLIENT_ID = "1fe12850"
 HUGGINGFACE_API_TOKEN = "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"  # Remplacez
@@ -32,6 +36,7 @@ API_URL_IMAGE_V2 = "https://api-inference.huggingface.co/models/alvdansen/BandW-
 app = Flask(__name__)
 q = Queue(connection=conn)
 app.secret_key = 'votre_cle_secrete'
+Compress(app)
 
 # Configuration de logging
 logging.basicConfig(level=logging.DEBUG)
