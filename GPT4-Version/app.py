@@ -22,12 +22,12 @@ import logging
 import time
 from requests.exceptions import HTTPError
 import tempfile
-from mistral_common.tokens.tokenizers.mistral import MistralTokenizer
-from mistral_common.protocol.instruct.messages import UserMessage
-from mistral_common.protocol.instruct.request import ChatCompletionRequest
-from mistral_inference.model import Transformer
-from mistral_inference.generate import generate
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModel, pipeline, AutoProcessor, AutoModelForTextToSpectrogram, SpeechT5HifiGan
+from datasets import load_dataset
+import soundfile as sf
+import torch
+import json
+from pydub import AudioSegment
 
 
 JAMENDO_CLIENT_ID = "1fe12850"
@@ -52,6 +52,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 HEADERS_LIST = [{"Authorization": f"Bearer {HUGGINGFACE_API_TOKEN}"}]
 
 mood = "bad"
+
 def search_music_by_mood(mood):
     url = "https://api.jamendo.com/v3.0/tracks"
     params = {
@@ -89,8 +90,18 @@ def upload_video_to_supabase(file_path, file_name):
     return res
 
 def text_to_speech(text, output_filename):
-    tts = gTTS(text=text, lang='en')
-    tts.save(output_filename)
+    processor = AutoProcessor.from_pretrained("microsoft/speecht5_tts")
+    model = AutoModelForTextToSpectrogram.from_pretrained("microsoft/speecht5_tts")
+    vocoder = SpeechT5HifiGan.from_pretrained("microsoft/speecht5_hifigan")
+
+    inputs = processor(text=text, return_tensors="pt")
+
+    # load xvector containing speaker's voice characteristics from a dataset
+    embeddings_dataset = load_dataset("Matthijs/cmu-arctic-xvectors", split="validation")
+    speaker_embeddings = torch.tensor(embeddings_dataset[7306]["xvector"]).unsqueeze(0)
+
+    speech = model.generate_speech(inputs["input_ids"], speaker_embeddings, vocoder=vocoder)
+    sf.write(output_filename, speech.numpy(), samplerate=16000)
 
 def format_response(chat_history):
     formatted_text = ""
@@ -224,21 +235,21 @@ def create_video_with_text(images_data, output_video, prompts, fps=1,
     audio_clips = []
     video_clips = []
 
-    # Créer un répertoire pour stocker les fichiers audio
     audio_dir = 'static/audio'
     if not os.path.exists(audio_dir):
         os.makedirs(audio_dir)
+
+    for audio_file in os.listdir(audio_dir):
+        os.remove(os.path.join(audio_dir, audio_file))
 
     for img_data, prompt in zip(images_data, prompts):
         audio_filename = os.path.join(audio_dir, f"{prompt[:10]}_audio.mp3")
         text_to_speech(prompt, audio_filename)
         speech_clip = AudioFileClip(audio_filename)
 
-        # Convertir les données d'image en tableau NumPy
         image = Image.open(img_data).convert('RGBA')
         img_array = np.array(image)
 
-        # Ajouter le texte directement sur l'image avec les améliorations
         img_with_text = text_to_image(img_array, prompt, font_size=48)
 
         img_clip = ImageClip(img_with_text).set_duration(speech_clip.duration)
@@ -258,61 +269,54 @@ def create_video_with_text(images_data, output_video, prompts, fps=1,
     final_audio = CompositeAudioClip([background_music, final_audio.set_duration(background_music.duration)])
     final_video = final_video.set_audio(final_audio)
 
-    # Écrire la vidéo finale dans un fichier
     final_video.write_videofile(output_video, fps=fps, codec='libx264')
 
-    # Nettoyer les fichiers audio temporaires
     for audio_file in os.listdir(audio_dir):
         os.remove(os.path.join(audio_dir, audio_file))
-
-
-# Tokenizer and model setup
-model_id = "mistralai/Mixtral-8x7B-Instruct-v0.1"
-tokenizer = AutoTokenizer.from_pretrained(model_id)
-model = AutoModelForCausalLM.from_pretrained(model_id, device_map="auto")
-
 
 @app.route('/', methods=['GET', 'POST'])
 def generate_text():
     if request.method == 'POST':
         prompt = request.form['prompt']
 
-        # Prepare inputs
-        messages = [{"role": "user", "content": prompt}]
-        inputs = tokenizer.apply_chat_template(messages, return_tensors="pt").to("cuda")
+        # Appel à l'API de Hugging Face avec le modèle gpt-neo-2.7B
+        API_URL_TEXT = "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1"
+        API_TOKEN = "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"  # Remplacez par votre jeton API Hugging Face
+        headers = {"Authorization": f"Bearer {API_TOKEN}"}
 
-        # Generate text
-        outputs = model.generate(inputs, max_new_tokens=1000, do_sample=True)
-        generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+        # Log the request for debugging purposes
+        logging.debug(f"Sending request to Hugging Face API with prompt: {prompt}")
 
-        # Truncate generated text
-        truncated_text = truncate_text(generated_text, min_length=800, max_length=1000)
+        response = requests.post(API_URL_TEXT, headers=headers, json={"inputs": prompt})
 
-        # Log and store in database
-        logging.debug(f"Generated text: {truncated_text}")
-        data = {"prompt": prompt, "response": truncated_text}
+        # Log the response status code and content for debugging purposes
+        logging.debug(f"Hugging Face API response status: {response.status_code}")
+        logging.debug(f"Hugging Face API response content: {response.content}")
+
+        if response.status_code != 200:
+            return jsonify({"error": "Failed to generate response from model"}), response.status_code
+
+        response_json = response.json()
+        logging.debug(f"Hugging Face API response JSON: {response_json}")
+
+        # Handling different possible response structures
+        if isinstance(response_json, list) and len(response_json) > 0 and 'generated_text' in response_json[0]:
+            generated_text = response_json[0]['generated_text']
+        else:
+            generated_text = 'No response'
+
+        # Stocker dans Supabase
+        data = {"prompt": prompt, "response": generated_text}
+        logging.debug(f"Data to insert into prompts: {data}")
         try:
             supabase.table('prompts').insert(data).execute()
         except Exception as e:
             logging.error(f"Error inserting data into prompts: {str(e)}")
             return jsonify({"error": str(e)}), 400
 
-        return render_template('result.html', response=truncated_text, image_prompt=truncated_text)
+        return render_template('result.html', response=generated_text, image_prompt=generated_text)
     else:
         return render_template('index.html')
-
-
-def truncate_text(text, min_length, max_length):
-    if len(text) <= max_length:
-        return text
-
-    truncated_text = text[:max_length]
-    if len(truncated_text) >= min_length:
-        last_period_index = truncated_text.rfind('.')
-        if last_period_index != -1:
-            return truncated_text[:last_period_index + 1]
-
-    return truncated_text
 
 @app.route('/history', methods=['GET'])
 def get_history():
