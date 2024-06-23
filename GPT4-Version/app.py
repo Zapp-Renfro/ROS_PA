@@ -156,7 +156,7 @@ def text_to_image(img_array, text, font_path='arialbd.ttf', font_size=36, text_c
         font = ImageFont.truetype(font_path, font_size)
     except IOError:
         font = ImageFont.load_default()
-    # Utiliser textbbox pour obtenir la taille du texte
+    # Utiliser textbbox pour obtenir la taille du textes
     text_bbox = draw.textbbox((0, 0), text, font=font)
     text_width = text_bbox[2] - text_bbox[0]
     text_height = text_bbox[3] - text_bbox[1]
