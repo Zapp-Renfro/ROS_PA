@@ -241,9 +241,7 @@ def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
     logging.debug("Exiting text_to_image function")
     return np.array(image)
 
-#elisabeth
-def create_video_with_text(images_data, output_video, prompts, fps=1,
-                           audio_path='static/music/relaxing-piano-201831.mp3'):
+def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Joanna'):
     audio_clips = []
     video_clips = []
 
@@ -256,7 +254,7 @@ def create_video_with_text(images_data, output_video, prompts, fps=1,
 
     for img_data, prompt in zip(images_data, prompts):
         audio_filename = os.path.join(audio_dir, f"{prompt[:10]}_audio.mp3")
-        text_to_speech(prompt, audio_filename)
+        text_to_speech(prompt, audio_filename, voice_id)
         speech_clip = AudioFileClip(audio_filename)
 
         image = Image.open(img_data).convert('RGBA')
@@ -282,6 +280,9 @@ def create_video_with_text(images_data, output_video, prompts, fps=1,
     final_video = final_video.set_audio(final_audio)
 
     final_video.write_videofile(output_video, fps=fps, codec='libx264')
+
+    for audio_file in os.listdir(audio_dir):
+        os.remove(os.path.join(audio_dir, audio_file))
 
     for audio_file in os.listdir(audio_dir):
         os.remove(os.path.join(audio_dir, audio_file))
@@ -321,7 +322,8 @@ def create_video():
     if not os.path.exists('static/videos'):
         os.makedirs('static/videos')
 
-    create_video_with_text(images_data, output_video, prompts, audio_path='static/music/relaxing-piano-201831.mp3')
+    create_video_with_text(images_data, output_video, prompts, audio_path='static/music/relaxing-piano-201831.mp3',
+                           voice_id='Joanna')
 
     with open(output_video, 'rb') as video_file:
         video_blob = video_file.read()
