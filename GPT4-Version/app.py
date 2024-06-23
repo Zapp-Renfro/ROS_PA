@@ -365,7 +365,6 @@ def create_video():
 
     logging.info(f"Creating video for code: {code} with prompts: {prompts}")
 
-    # Récupérer les images depuis Supabase avec le code
     response = supabase.table('images').select('image_blob').eq('code', code).execute()
     if response.data:
         images_data = []
@@ -389,10 +388,8 @@ def create_video():
     if not os.path.exists('static/videos'):
         os.makedirs('static/videos')
 
-    # Créer la vidéo avec les images récupérées
     create_video_with_text(images_data, output_video, prompts, audio_path='static/music/relaxing-piano-201831.mp3')
-    session['video_path'] = output_video
-    # Obtenir le lien de la vidéo stockée dans Supabase
+
     with open(output_video, 'rb') as video_file:
         video_blob = video_file.read()
     video_base64 = base64.b64encode(video_blob).decode('utf-8')
