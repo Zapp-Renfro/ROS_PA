@@ -46,28 +46,21 @@ AWS_SECRET_ACCESS_KEY = 'RPEQw0rg7rjArpri1Ti7QsotqSCgJnUurw3dYZmt'
 AWS_REGION = 'eu-west-1'
 
 def text_to_speech(text, output_filename, voice_id='Joanna'):
-    # Log the voice_id being used
     logging.debug(f"Using voice_id: {voice_id}")
-
-    # Initialiser le client Polly
     polly_client = boto3.Session(
         aws_access_key_id=AWS_ACCESS_KEY_ID,
         aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
         region_name=AWS_REGION
     ).client('polly')
 
-    # Convertir le texte en parole
     response = polly_client.synthesize_speech(
         Text=text,
         OutputFormat='mp3',
         VoiceId=voice_id
     )
 
-    # Enregistrer le fichier audio
     with open(output_filename, 'wb') as file:
         file.write(response['AudioStream'].read())
-
-    logging.debug(f"Audio saved to {output_filename}")
 
 
 def format_response(chat_history):
@@ -154,7 +147,7 @@ def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
         logging.warning("Font not found, using default font")
 
     if max_width is None:
-        max_width = image.width - 40  # Ajouter une marge de 20 pixels de chaque côté
+        max_width = image.width - 40
     logging.debug(f"Max width for text: {max_width}")
 
     lines = []
@@ -198,26 +191,25 @@ def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
     logging.debug("Exiting text_to_image function")
     return np.array(image)
 
-
-def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Joanna'):
+def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Matthew'):
     audio_clips = []
     video_clips = []
 
-    # Créer un répertoire pour stocker les fichiers audio
     audio_dir = 'static/audio'
     if not os.path.exists(audio_dir):
         os.makedirs(audio_dir)
+
+    for audio_file in os.listdir(audio_dir):
+        os.remove(os.path.join(audio_dir, audio_file))
 
     for img_data, prompt in zip(images_data, prompts):
         audio_filename = os.path.join(audio_dir, f"{prompt[:10]}_audio.mp3")
         text_to_speech(prompt, audio_filename, voice_id)
         speech_clip = AudioFileClip(audio_filename)
 
-        # Convertir les données d'image en tableau NumPy
         image = Image.open(img_data).convert('RGBA')
         img_array = np.array(image)
 
-        # Ajouter le texte directement sur l'image
         img_with_text = text_to_image(img_array, prompt, font_size=48)
 
         img_clip = ImageClip(img_with_text).set_duration(speech_clip.duration)
@@ -237,15 +229,64 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
     final_audio = CompositeAudioClip([background_music, final_audio.set_duration(background_music.duration)])
     final_video = final_video.set_audio(final_audio)
 
-    # Écrire la vidéo finale dans un fichier
     final_video.write_videofile(output_video, fps=fps, codec='libx264')
 
-    # Nettoyer les fichiers audio temporaires
     for audio_file in os.listdir(audio_dir):
         os.remove(os.path.join(audio_dir, audio_file))
 
-    # Exemple d'appel de la fonction avec le voice_id spécifié
-    create_video_with_text(images_data, 'output_video.mp4', prompts, voice_id='Matthew')
+@app.route('/create_video', methods=['GET'])
+def create_video_route():
+    prompts = request.args.getlist('prompts')
+    code = request.args.get('code')
+
+    if not code:
+        logging.error("No code provided for video creation.")
+        return "No code provided", 400
+
+    logging.info(f"Creating video for code: {code} with prompts: {prompts}")
+
+    response = supabase.table('images').select('image_blob').eq('code', code).execute()
+    if response.data:
+        images_data = []
+        for img in response.data:
+            image_blob = img.get('image_blob')
+            if image_blob:
+                try:
+                    images_data.append(BytesIO(base64.b64decode(image_blob)))
+                    logging.info(f"Image retrieved for code {code}")
+                except Exception as e:
+                    logging.error(f"Failed to decode image for code {code}: {e}")
+    else:
+        logging.error(f"No images found for code {code}.")
+        images_data = []
+
+    if not images_data:
+        logging.error(f"No valid images found for code {code}.")
+        return "No valid images found", 400
+
+    output_video = 'static/videos/output_video.mp4'
+    if not os.path.exists('static/videos'):
+        os.makedirs('static/videos')
+
+    create_video_with_text(images_data, output_video, prompts, audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Matthew')
+
+    with open(output_video, 'rb') as video_file:
+        video_blob = video_file.read()
+    video_base64 = base64.b64encode(video_blob).decode('utf-8')
+
+    video_data = {
+        "filename": os.path.basename(output_video),
+        "video_blob": video_base64
+    }
+
+    try:
+        supabase.table('videos').insert(video_data).execute()
+        video_url = f"data:video/mp4;base64,{video_base64}"
+    except Exception as e:
+        logging.error(f"Error inserting video data into Supabase: {e}")
+        video_url = None
+
+    return render_template('video_result.html', video_url=video_url)
 
 
 
