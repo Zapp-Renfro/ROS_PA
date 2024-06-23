@@ -1,3 +1,4 @@
+import boto3
 from flask import Flask, request, render_template, jsonify, session, url_for, redirect
 
 from datetime import datetime
@@ -24,7 +25,7 @@ import tempfile
 from transformers import AutoModel, pipeline, AutoProcessor, AutoModelForTextToSpectrogram, SpeechT5HifiGan
 from datasets import load_dataset
 import soundfile as sf
-import torch
+
 
 
 JAMENDO_CLIENT_ID = "1fe12850"
@@ -50,6 +51,10 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 HEADERS_LIST = [{"Authorization": f"Bearer {HUGGINGFACE_API_TOKEN}"}]
 
+# Configuration AWS
+AWS_ACCESS_KEY_ID = 'AKIAVRUVT3YMY5C23CNL'
+AWS_SECRET_ACCESS_KEY = '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'
+AWS_REGION = 'eu-west-1'
 
 mood = "bad"
 def search_music_by_mood(mood):
@@ -89,19 +94,22 @@ def upload_video_to_supabase(file_path, file_name):
     return res
 
 
-def text_to_speech_huggingface(text, output_filename):
-    processor = AutoProcessor.from_pretrained("microsoft/speecht5_tts")
-    model = AutoModelForTextToSpectrogram.from_pretrained("microsoft/speecht5_tts")
-    vocoder = SpeechT5HifiGan.from_pretrained("microsoft/speecht5_hifigan")
+def text_to_speech(text, output_filename, voice_id='Joanna'):
+    logging.debug(f"Using voice_id: {voice_id}")
+    polly_client = boto3.Session(
+        aws_access_key_id=AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+        region_name=AWS_REGION
+    ).client('polly')
 
-    inputs = processor(text=text, return_tensors="pt")
+    response = polly_client.synthesize_speech(
+        Text=text,
+        OutputFormat='mp3',
+        VoiceId=voice_id
+    )
 
-    # load xvector containing speaker's voice characteristics from a dataset
-    embeddings_dataset = load_dataset("Matthijs/cmu-arctic-xvectors", split="validation")
-    speaker_embeddings = torch.tensor(embeddings_dataset[7306]["xvector"]).unsqueeze(0)
-
-    speech = model.generate_speech(inputs["input_ids"], speaker_embeddings, vocoder=vocoder)
-    sf.write(output_filename, speech.numpy(), samplerate=16000)
+    with open(output_filename, 'wb') as file:
+        file.write(response['AudioStream'].read())
 
 
 
@@ -250,7 +258,7 @@ def create_video_with_text(images_data, output_video, prompts, fps=1,
 
     for img_data, prompt in zip(images_data, prompts):
         audio_filename = os.path.join(audio_dir, f"{prompt[:10]}_audio.mp3")
-        text_to_speech_huggingface(prompt, audio_filename)
+        text_to_speech(prompt, audio_filename)
         speech_clip = AudioFileClip(audio_filename)
 
         image = Image.open(img_data).convert('RGBA')
