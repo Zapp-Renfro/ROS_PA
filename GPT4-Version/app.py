@@ -22,12 +22,6 @@ import logging
 import time
 from requests.exceptions import HTTPError
 import tempfile
-from mistral_common.tokens.tokenizers.mistral import MistralTokenizer
-from mistral_common.protocol.instruct.messages import UserMessage
-from mistral_common.protocol.instruct.request import ChatCompletionRequest
-from mistral_inference.model import Transformer
-from mistral_inference.generate import generate
-from transformers import AutoModelForCausalLM
 
 
 JAMENDO_CLIENT_ID = "1fe12850"
@@ -278,7 +272,7 @@ def generate_text():
         # Log the request for debugging purposes
         logging.debug(f"Sending request to Hugging Face API with prompt: {prompt}")
 
-        response = requests.post(API_URL_TEXT, headers=headers, json={"inputs": prompt, "max_tokens": 1024})
+        response = requests.post(API_URL_TEXT, headers=headers, json={"inputs": prompt})
 
         # Log the response status code and content for debugging purposes
         logging.debug(f"Hugging Face API response status: {response.status_code}")
