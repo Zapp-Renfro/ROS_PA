@@ -11,3 +11,7 @@ requests==2.31.0
 Pillow==10.3.0
 boto3==1.24.27
 numpy==1.26.4
+transformers
+datasets
+torch
+sentencepiece
