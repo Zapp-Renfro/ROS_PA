@@ -111,11 +111,13 @@ def generate_images_from_prompts(prompts, code):
 
     return filenames
 
-def text_to_image(img_array, text, font_path='arialbd.ttf', font_size=1000, text_color=(255, 255, 255),
+def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
                   outline_color=(0, 0, 0), shadow_color=(50, 50, 50)):
     image = Image.fromarray(img_array)
     draw = ImageDraw.Draw(image)
     try:
+        # Utiliser une police embarquée avec Pillow
+        font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
         font = ImageFont.truetype(font_path, font_size)
     except IOError:
         font = ImageFont.load_default()
@@ -161,7 +163,7 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
         img_array = np.array(image)
 
         # Ajouter le texte directement sur l'image avec les améliorations
-        img_with_text = text_to_image(img_array, prompt, font_path='arialbd.ttf', font_size=100)
+        img_with_text = text_to_image(img_array, prompt, font_size=48)
 
         img_clip = ImageClip(img_with_text).set_duration(speech_clip.duration)
         video = img_clip.set_audio(speech_clip)
