@@ -91,7 +91,7 @@ def upload_video_to_supabase(file_path, file_name):
     return res
 
 
-def text_to_speech(text, output_filename, voice_id='Miguel'):
+def text_to_speech(text, output_filename, voice_id='Joanna'):
     logging.debug(f"Using voice_id: {voice_id}")
     polly_client = boto3.Session(
         aws_access_key_id=AWS_ACCESS_KEY_ID,
@@ -248,7 +248,7 @@ def split_text_into_segments(text, duration):
     segments = [" ".join(words[i:i + segment_length]) for i in range(0, len(words), segment_length)]
     return segments
 
-def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Miguel'):
+def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Joanna'):
     audio_clips = []
     video_clips = []
 
@@ -334,7 +334,7 @@ def create_video():
         os.makedirs('static/videos')
 
     create_video_with_text(images_data, output_video, prompts, audio_path='static/music/relaxing-piano-201831.mp3',
-                           voice_id='Miguel')
+                           voice_id='Joanna')
 
     with open(output_video, 'rb') as video_file:
         video_blob = video_file.read()
