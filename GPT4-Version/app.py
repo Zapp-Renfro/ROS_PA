@@ -507,49 +507,49 @@ def final_video():
     music_start_time = int(request.form.get('start_time'))
     music_end_time = int(request.form.get('end_time'))
 
-    # Path to the existing video file
+    # Chemin vers le fichier vidéo existant
     video_path = session.get('video_path')
 
     if not os.path.exists(video_path):
         return "Fichier vidéo non trouvé.", 404
 
-    # Get the duration of the existing video
+    # Obtenez la durée de la vidéo existante
     video_duration = get_video_duration(video_path)
 
-    # Calculate the duration of the selected music segment
+    # Calculez la durée du segment de musique sélectionné
     music_segment_duration = music_end_time - music_start_time
 
-    # Ensure the selected segment duration does not exceed the video duration
+    # Assurez-vous que la durée du segment sélectionné ne dépasse pas la durée de la vidéo
     if music_segment_duration > video_duration:
         return "La durée de la sélection de la musique dépasse la durée de la vidéo.", 400
 
-    # Ensure the selected segment is valid
+    # Assurez-vous que le segment sélectionné est valide
     if music_end_time <= music_start_time:
         return "Temps de début ou de fin invalide.", 400
 
-    # Download the audio preview
+    # Téléchargez l'aperçu audio
     audio_path = download_audio_preview(preview_url)
     if not audio_path:
         return "Aperçu audio non trouvé.", 404
 
-    # Create a temporary file for the new video with audio
+    # Créez un fichier temporaire pour la nouvelle vidéo avec audio
     output_video_path = os.path.join('static', 'output_video_music.mp4')
     audio_clip = None
     try:
-        # Load the existing video clip
+        # Chargez le clip vidéo existant
         video_clip = VideoFileClip(video_path).subclip(0, music_segment_duration)
-        # Add the audio file to the video
+        # Ajoutez le fichier audio à la vidéo
         audio_clip = AudioFileClip(audio_path).subclip(music_start_time, music_end_time)
         video_clip = video_clip.set_audio(audio_clip)
-        # Write the new video file
+        # Écrivez le nouveau fichier vidéo
         video_clip.write_videofile(output_video_path, codec="libx264", fps=24)
     finally:
-        # Ensure the audio file is closed and deleted
+        # Assurez-vous que le fichier audio est fermé et supprimé
         if audio_clip:
             audio_clip.close()
         os.remove(audio_path)
 
-    # Save the new video to Supabase
+    # Sauvegardez la nouvelle vidéo dans Supabase
     with open(output_video_path, 'rb') as video_file:
         video_blob = video_file.read()
     video_base64 = base64.b64encode(video_blob).decode('utf-8')
@@ -563,16 +563,16 @@ def final_video():
         supabase.table('videos').insert(video_data).execute()
         video_url = f"data:video/mp4;base64,{video_base64}"
     except Exception as e:
-        logging.error(f"Error inserting video data into Supabase: {e}")
+        logging.error(f"Erreur lors de l'insertion des données vidéo dans Supabase: {e}")
         video_url = None
 
-    return redirect(url_for('show_video', video_path=video_url))
-
+    return render_template('show_video', video_path=video_url)
 
 @app.route('/show_video')
 def show_video():
     video_path = request.args.get('video_path')
     return render_template('show_video.html', video_path=video_path)
+
 
 if __name__ == "__main__":
     app.run(debug=True)
