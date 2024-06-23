@@ -47,7 +47,6 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 HEADERS_LIST = [{"Authorization": f"Bearer {HUGGINGFACE_API_TOKEN}"}]
 
 mood = "bad"
-
 def search_music_by_mood(mood):
     url = "https://api.jamendo.com/v3.0/tracks"
     params = {
