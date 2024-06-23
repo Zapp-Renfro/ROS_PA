@@ -22,7 +22,6 @@ import logging
 import time
 from requests.exceptions import HTTPError
 import tempfile
-import boto3
 
 JAMENDO_CLIENT_ID = "1fe12850"
 HUGGINGFACE_API_TOKEN = "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"  # Remplacez
@@ -43,11 +42,6 @@ SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 HEADERS_LIST = [{"Authorization": f"Bearer {HUGGINGFACE_API_TOKEN}"}]
-
-# Configuration AWS
-AWS_ACCESS_KEY_ID = 'AKIAVRUVT3YMY5C23CNL'
-AWS_SECRET_ACCESS_KEY = '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'
-AWS_REGION = 'eu-west-1'
 
 mood = "bad"
 def search_music_by_mood(mood):
@@ -81,22 +75,9 @@ def download_audio_preview(url):
         return temp_file.name
     return None
 
-def text_to_speech(text, output_filename, voice_id='Joanna'):
-    logging.debug(f"Using voice_id: {voice_id}")
-    polly_client = boto3.Session(
-        aws_access_key_id=AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-        region_name=AWS_REGION
-    ).client('polly')
-
-    response = polly_client.synthesize_speech(
-        Text=text,
-        OutputFormat='mp3',
-        VoiceId=voice_id
-    )
-
-    with open(output_filename, 'wb') as file:
-        file.write(response['AudioStream'].read())
+def text_to_speech(text, output_filename):
+    tts = gTTS(text=text, lang='en')
+    tts.save(output_filename)
 
 def format_response(chat_history):
     formatted_text = ""
@@ -225,25 +206,26 @@ def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
     logging.debug("Exiting text_to_image function")
     return np.array(image)
 
-def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Matthew'):
+def create_video_with_text(images_data, output_video, prompts, fps=1,
+                           audio_path='static/music/relaxing-piano-201831.mp3'):
     audio_clips = []
     video_clips = []
 
+    # Créer un répertoire pour stocker les fichiers audio
     audio_dir = 'static/audio'
     if not os.path.exists(audio_dir):
         os.makedirs(audio_dir)
 
-    for audio_file in os.listdir(audio_dir):
-        os.remove(os.path.join(audio_dir, audio_file))
-
     for img_data, prompt in zip(images_data, prompts):
         audio_filename = os.path.join(audio_dir, f"{prompt[:10]}_audio.mp3")
-        text_to_speech(prompt, audio_filename, voice_id)
+        text_to_speech(prompt, audio_filename)
         speech_clip = AudioFileClip(audio_filename)
 
+        # Convertir les données d'image en tableau NumPy
         image = Image.open(img_data).convert('RGBA')
         img_array = np.array(image)
 
+        # Ajouter le texte directement sur l'image avec les améliorations
         img_with_text = text_to_image(img_array, prompt, font_size=48)
 
         img_clip = ImageClip(img_with_text).set_duration(speech_clip.duration)
@@ -263,8 +245,10 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
     final_audio = CompositeAudioClip([background_music, final_audio.set_duration(background_music.duration)])
     final_video = final_video.set_audio(final_audio)
 
+    # Écrire la vidéo finale dans un fichier
     final_video.write_videofile(output_video, fps=fps, codec='libx264')
 
+    # Nettoyer les fichiers audio temporaires
     for audio_file in os.listdir(audio_dir):
         os.remove(os.path.join(audio_dir, audio_file))
 
@@ -364,6 +348,7 @@ def create_video():
 
     logging.info(f"Creating video for code: {code} with prompts: {prompts}")
 
+    # Récupérer les images depuis Supabase avec le code
     response = supabase.table('images').select('image_blob').eq('code', code).execute()
     if response.data:
         images_data = []
@@ -387,8 +372,10 @@ def create_video():
     if not os.path.exists('static/videos'):
         os.makedirs('static/videos')
 
-    create_video_with_text(images_data, output_video, prompts, audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Matthew')
-
+    # Créer la vidéo avec les images récupérées
+    create_video_with_text(images_data, output_video, prompts, audio_path='static/music/relaxing-piano-201831.mp3')
+    session['video_path'] = output_video
+    # Obtenir le lien de la vidéo stockée dans Supabase
     with open(output_video, 'rb') as video_file:
         video_blob = video_file.read()
     video_base64 = base64.b64encode(video_blob).decode('utf-8')
