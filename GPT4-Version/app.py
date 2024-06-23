@@ -241,14 +241,21 @@ def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
     return np.array(image)
 
 
-def split_text_into_segments(text, duration):
+def split_text_into_segments(text, max_length):
     words = text.split()
-    num_segments = int(duration * 2)  # For simplicity, 2 segments per second
-    segment_length = max(1, len(words) // num_segments)
-    segments = [" ".join(words[i:i + segment_length]) for i in range(0, len(words), segment_length)]
+    segments = []
+    current_segment = ""
+    for word in words:
+        if len(current_segment) + len(word) + 1 <= max_length:
+            current_segment = f"{current_segment} {word}".strip()
+        else:
+            segments.append(current_segment)
+            current_segment = word
+    if current_segment:
+        segments.append(current_segment)
     return segments
 
-def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Joanna'):
+def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Miguel'):
     audio_clips = []
     video_clips = []
 
@@ -268,7 +275,7 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
         img_array = np.array(image)
 
         # Create the video clip with text appearing in sync with the audio
-        segments = split_text_into_segments(prompt, speech_clip.duration)
+        segments = split_text_into_segments(prompt, max_length=80)
         duration_per_segment = speech_clip.duration / len(segments)
         subclips = []
 
@@ -280,6 +287,13 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
         video = CompositeVideoClip(subclips).set_audio(speech_clip)
         video_clips.append(video)
         audio_clips.append(speech_clip)
+
+        # Free memory after processing the image
+        del image
+        del img_array
+        del img_with_text
+        for clip in subclips:
+            clip.close()
 
     if not video_clips:
         logging.error("No video clips were created. Ensure that image data and prompts are valid.")
@@ -294,6 +308,13 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
     final_video = final_video.set_audio(final_audio)
 
     final_video.write_videofile(output_video, fps=fps, codec='libx264')
+
+    # Free memory by closing video and audio clips
+    final_video.close()
+    for audio_clip in audio_clips:
+        audio_clip.close()
+    for video_clip in video_clips:
+        video_clip.close()
 
     for audio_file in os.listdir(audio_dir):
         os.remove(os.path.join(audio_dir, audio_file))
