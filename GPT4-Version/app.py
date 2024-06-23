@@ -1,10 +1,10 @@
 from flask import Flask, request, render_template, jsonify, session, url_for, redirect
-from diffusers import StableDiffusionPipeline
+
 from datetime import datetime
 import os
 from moviepy.editor import ImageClip, TextClip, CompositeVideoClip, concatenate_videoclips, AudioFileClip, \
     concatenate_audioclips, CompositeAudioClip
-from gtts import gTTS
+
 from moviepy.video.io.VideoFileClip import VideoFileClip
 from supabase import create_client, Client
 import requests
@@ -21,29 +21,14 @@ import logging
 import time
 from requests.exceptions import HTTPError
 import tempfile
-import boto3
-# Load model directly
 from transformers import AutoModel, pipeline, AutoProcessor, AutoModelForTextToSpectrogram, SpeechT5HifiGan
 from datasets import load_dataset
 import soundfile as sf
 import torch
-import json
-from pydub import AudioSegment
 
 
 JAMENDO_CLIENT_ID = "1fe12850"
 HUGGINGFACE_API_TOKEN = "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"  # Remplacez
-
-import boto3
-# Load model directly
-from transformers import AutoModel, pipeline, AutoProcessor, AutoModelForTextToSpectrogram, SpeechT5HifiGan
-from datasets import load_dataset
-import soundfile as sf
-import torch
-import json
-from pydub import AudioSegment
-
-
 
 API_URL_IMAGE = "https://api-inference.huggingface.co/models/dataautogpt3/ProteusV0.2"
 API_URL_IMAGE_V2 = "https://api-inference.huggingface.co/models/alvdansen/BandW-Manga"
