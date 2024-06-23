@@ -537,7 +537,7 @@ def final_video():
         logging.error(f"Error inserting video data into Supabase: {e}")
         video_url = None
 
-    return render_template('show_video', video_path=video_path)
+    return redirect(url_for('show_video', video_path=video_path))
 
 
 @app.route('/show_video')
