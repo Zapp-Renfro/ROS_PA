@@ -279,17 +279,14 @@ def generate_text():
     if request.method == 'POST':
         prompt = request.form['prompt']
 
-        # Appel à l'API de Hugging Face avec le modèle gpt-neo-2.7B
         API_URL_TEXT = "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1"
-        API_TOKEN = "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"  # Remplacez par votre jeton API Hugging Face
+        API_TOKEN = "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"
         headers = {"Authorization": f"Bearer {API_TOKEN}"}
 
-        # Log the request for debugging purposes
         logging.debug(f"Sending request to Hugging Face API with prompt: {prompt}")
 
         response = requests.post(API_URL_TEXT, headers=headers, json={"inputs": prompt})
 
-        # Log the response status code and content for debugging purposes
         logging.debug(f"Hugging Face API response status: {response.status_code}")
         logging.debug(f"Hugging Face API response content: {response.content}")
 
@@ -299,13 +296,11 @@ def generate_text():
         response_json = response.json()
         logging.debug(f"Hugging Face API response JSON: {response_json}")
 
-        # Handling different possible response structures
         if isinstance(response_json, list) and len(response_json) > 0 and 'generated_text' in response_json[0]:
             generated_text = response_json[0]['generated_text']
         else:
             generated_text = 'No response'
 
-        # Stocker dans Supabase
         data = {"prompt": prompt, "response": generated_text}
         logging.debug(f"Data to insert into prompts: {data}")
         try:
