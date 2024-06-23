@@ -42,7 +42,7 @@ HEADERS_LIST = [{"Authorization": f"Bearer {HUGGINGFACE_API_TOKEN}"}]
 
 # Configuration AWS
 AWS_ACCESS_KEY_ID = 'AKIAVRUVT3YMY5C23CNL'
-AWS_SECRET_ACCESS_KEY = 'RPEQw0rg7rjArpri1Ti7QsotqSCgJnUurw3dYZm'
+AWS_SECRET_ACCESS_KEY = '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'
 AWS_REGION = 'eu-west-1'
 
 def text_to_speech(text, output_filename):
