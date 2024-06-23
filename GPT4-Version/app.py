@@ -266,35 +266,52 @@ def create_video_with_text(images_data, output_video, prompts, fps=1,
         os.remove(os.path.join(audio_dir, audio_file))
 
 
+def truncate_text(text, min_length, max_length):
+    if len(text) <= max_length:
+        return text
+
+    truncated_text = text[:max_length]
+    if len(truncated_text) >= min_length:
+        # Find the last period in the truncated text
+        last_period_index = truncated_text.rfind('.')
+        if last_period_index != -1:
+            return truncated_text[:last_period_index + 1]
+
+    return truncated_text
+
 @app.route('/', methods=['GET', 'POST'])
 def generate_text():
     if request.method == 'POST':
         prompt = request.form['prompt']
 
-        logging.debug(f"Received prompt: {prompt}")
+        # Appel à l'API de Hugging Face avec le modèle gpt-neo-2.7B
+        API_URL_TEXT = "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1"
+        API_TOKEN = "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"  # Remplacez par votre jeton API Hugging Face
+        headers = {"Authorization": f"Bearer {API_TOKEN}"}
 
-        # Encodage du prompt avec Mistral
-        completion_request = ChatCompletionRequest(messages=[UserMessage(content=prompt)])
-        tokens = tokenizer.encode_chat_completion(completion_request).tokens
+        logging.debug(f"Sending request to Hugging Face API with prompt: {prompt}")
 
-        # Chargement du modèle et génération
-        model = Transformer.from_folder(mistral_models_path)
-        out_tokens, _ = generate([tokens], model, max_tokens=1000, temperature=0.7,
-                                 eos_id=tokenizer.instruct_tokenizer.tokenizer.eos_id)
+        response = requests.post(API_URL_TEXT, headers=headers, json={"inputs": prompt, "max_tokens": 1024})
 
-        result = tokenizer.decode(out_tokens[0])
+        logging.debug(f"Hugging Face API response status: {response.status_code}")
+        logging.debug(f"Hugging Face API response content: {response.content}")
 
-        # Post-traitement pour limiter entre 800 et 1000 caractères
-        if len(result) > 1000:
-            result = result[:1000]
-        end_pos = result.rfind('.')
-        if 800 <= len(result) <= 1000 and end_pos != -1:
-            result = result[:end_pos + 1]
+        if response.status_code != 200:
+            return jsonify({"error": "Failed to generate response from model"}), response.status_code
 
-        logging.debug(f"Generated text: {result}")
+        response_json = response.json()
+        logging.debug(f"Hugging Face API response JSON: {response_json}")
+
+        if isinstance(response_json, list) and len(response_json) > 0 and 'generated_text' in response_json[0]:
+            generated_text = response_json[0]['generated_text']
+        else:
+            generated_text = 'No response'
+
+        # Truncate generated text to between 800 and 1000 characters, ending at a sentence boundary
+        truncated_text = truncate_text(generated_text, min_length=800, max_length=1000)
 
         # Stocker dans Supabase
-        data = {"prompt": prompt, "response": result}
+        data = {"prompt": prompt, "response": truncated_text}
         logging.debug(f"Data to insert into prompts: {data}")
         try:
             supabase.table('prompts').insert(data).execute()
@@ -302,7 +319,7 @@ def generate_text():
             logging.error(f"Error inserting data into prompts: {str(e)}")
             return jsonify({"error": str(e)}), 400
 
-        return render_template('result.html', response=result, image_prompt=result)
+        return render_template('result.html', response=truncated_text, image_prompt=truncated_text)
     else:
         return render_template('index.html')
 
