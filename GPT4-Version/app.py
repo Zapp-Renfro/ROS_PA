@@ -22,6 +22,7 @@ import logging
 import time
 from requests.exceptions import HTTPError
 import tempfile
+import boto3
 
 JAMENDO_CLIENT_ID = "1fe12850"
 HUGGINGFACE_API_TOKEN = "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"  # Remplacez
@@ -80,9 +81,22 @@ def download_audio_preview(url):
         return temp_file.name
     return None
 
-def text_to_speech(text, output_filename):
-    tts = gTTS(text=text, lang='en')
-    tts.save(output_filename)
+def text_to_speech(text, output_filename, voice_id='Joanna'):
+    logging.debug(f"Using voice_id: {voice_id}")
+    polly_client = boto3.Session(
+        aws_access_key_id=AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+        region_name=AWS_REGION
+    ).client('polly')
+
+    response = polly_client.synthesize_speech(
+        Text=text,
+        OutputFormat='mp3',
+        VoiceId=voice_id
+    )
+
+    with open(output_filename, 'wb') as file:
+        file.write(response['AudioStream'].read())
 
 def format_response(chat_history):
     formatted_text = ""
