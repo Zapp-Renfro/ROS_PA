@@ -582,7 +582,7 @@ def show_video():
     if not video_path or not os.path.exists(video_path):
         return "Vidéo non trouvée.", 404
 
-    return render_template('video_result.html', video_path=video_path)
+    return render_template('show_video.html', video_path=video_path)
 
 if __name__ == "__main__":
     app.run(debug=True)
