@@ -22,12 +22,7 @@ import logging
 import time
 from requests.exceptions import HTTPError
 import tempfile
-from transformers import AutoModel, pipeline, AutoProcessor, AutoModelForTextToSpectrogram, SpeechT5HifiGan
-from datasets import load_dataset
-import soundfile as sf
-import torch
-import json
-from pydub import AudioSegment
+
 
 
 JAMENDO_CLIENT_ID = "1fe12850"
@@ -90,18 +85,8 @@ def upload_video_to_supabase(file_path, file_name):
     return res
 
 def text_to_speech(text, output_filename):
-    processor = AutoProcessor.from_pretrained("microsoft/speecht5_tts")
-    model = AutoModelForTextToSpectrogram.from_pretrained("microsoft/speecht5_tts")
-    vocoder = SpeechT5HifiGan.from_pretrained("microsoft/speecht5_hifigan")
-
-    inputs = processor(text=text, return_tensors="pt")
-
-    # load xvector containing speaker's voice characteristics from a dataset
-    embeddings_dataset = load_dataset("Matthijs/cmu-arctic-xvectors", split="validation")
-    speaker_embeddings = torch.tensor(embeddings_dataset[7306]["xvector"]).unsqueeze(0)
-
-    speech = model.generate_speech(inputs["input_ids"], speaker_embeddings, vocoder=vocoder)
-    sf.write(output_filename, speech.numpy(), samplerate=16000)
+    tts = gTTS(text=text, lang='en')
+    tts.save(output_filename)
 
 def format_response(chat_history):
     formatted_text = ""
@@ -235,21 +220,21 @@ def create_video_with_text(images_data, output_video, prompts, fps=1,
     audio_clips = []
     video_clips = []
 
+    # Créer un répertoire pour stocker les fichiers audio
     audio_dir = 'static/audio'
     if not os.path.exists(audio_dir):
         os.makedirs(audio_dir)
-
-    for audio_file in os.listdir(audio_dir):
-        os.remove(os.path.join(audio_dir, audio_file))
 
     for img_data, prompt in zip(images_data, prompts):
         audio_filename = os.path.join(audio_dir, f"{prompt[:10]}_audio.mp3")
         text_to_speech(prompt, audio_filename)
         speech_clip = AudioFileClip(audio_filename)
 
+        # Convertir les données d'image en tableau NumPy
         image = Image.open(img_data).convert('RGBA')
         img_array = np.array(image)
 
+        # Ajouter le texte directement sur l'image avec les améliorations
         img_with_text = text_to_image(img_array, prompt, font_size=48)
 
         img_clip = ImageClip(img_with_text).set_duration(speech_clip.duration)
@@ -269,8 +254,10 @@ def create_video_with_text(images_data, output_video, prompts, fps=1,
     final_audio = CompositeAudioClip([background_music, final_audio.set_duration(background_music.duration)])
     final_video = final_video.set_audio(final_audio)
 
+    # Écrire la vidéo finale dans un fichier
     final_video.write_videofile(output_video, fps=fps, codec='libx264')
 
+    # Nettoyer les fichiers audio temporaires
     for audio_file in os.listdir(audio_dir):
         os.remove(os.path.join(audio_dir, audio_file))
 
@@ -279,14 +266,17 @@ def generate_text():
     if request.method == 'POST':
         prompt = request.form['prompt']
 
+        # Appel à l'API de Hugging Face avec le modèle gpt-neo-2.7B
         API_URL_TEXT = "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1"
-        API_TOKEN = "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"
+        API_TOKEN = "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"  # Remplacez par votre jeton API Hugging Face
         headers = {"Authorization": f"Bearer {API_TOKEN}"}
 
+        # Log the request for debugging purposes
         logging.debug(f"Sending request to Hugging Face API with prompt: {prompt}")
 
         response = requests.post(API_URL_TEXT, headers=headers, json={"inputs": prompt})
 
+        # Log the response status code and content for debugging purposes
         logging.debug(f"Hugging Face API response status: {response.status_code}")
         logging.debug(f"Hugging Face API response content: {response.content}")
 
@@ -296,11 +286,13 @@ def generate_text():
         response_json = response.json()
         logging.debug(f"Hugging Face API response JSON: {response_json}")
 
+        # Handling different possible response structures
         if isinstance(response_json, list) and len(response_json) > 0 and 'generated_text' in response_json[0]:
             generated_text = response_json[0]['generated_text']
         else:
             generated_text = 'No response'
 
+        # Stocker dans Supabase
         data = {"prompt": prompt, "response": generated_text}
         logging.debug(f"Data to insert into prompts: {data}")
         try:
@@ -365,6 +357,7 @@ def create_video():
 
     logging.info(f"Creating video for code: {code} with prompts: {prompts}")
 
+    # Récupérer les images depuis Supabase avec le code
     response = supabase.table('images').select('image_blob').eq('code', code).execute()
     if response.data:
         images_data = []
@@ -388,8 +381,10 @@ def create_video():
     if not os.path.exists('static/videos'):
         os.makedirs('static/videos')
 
+    # Créer la vidéo avec les images récupérées
     create_video_with_text(images_data, output_video, prompts, audio_path='static/music/relaxing-piano-201831.mp3')
-
+    session['video_path'] = output_video
+    # Obtenir le lien de la vidéo stockée dans Supabase
     with open(output_video, 'rb') as video_file:
         video_blob = video_file.read()
     video_base64 = base64.b64encode(video_blob).decode('utf-8')
