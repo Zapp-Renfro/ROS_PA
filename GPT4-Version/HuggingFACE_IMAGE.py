@@ -5,6 +5,7 @@ import random
 
 API_URL = "https://api-inference.huggingface.co/models/dataautogpt3/ProteusV0.4"
 API_URL_V2 = "https://api-inference.huggingface.co/models/alvdansen/BandW-Manga"
+API_URL_V3 = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0"
 
 
 # Différents en-têtes avec des jetons d'authentification
@@ -22,7 +23,7 @@ def get_image_from_api(prompt):
 
     try:
         # Envoyer la requête à l'API
-        response = requests.post(API_URL_V2, headers=headers, json={"inputs": prompt})
+        response = requests.post(API_URL_V3, headers=headers, json={"inputs": prompt})
         response.raise_for_status()
 
         # Lire l'image à partir de la réponse
@@ -38,5 +39,5 @@ def get_image_from_api(prompt):
         print(f"An error occurred: {err}")
 
 # Exemple d'utilisation
-prompt = "The true face oh the dead"
+prompt = "something about love that can be sweet,psychologique, extraordinary because of an encounter in life or a love story."
 get_image_from_api(prompt)

@@ -23,6 +23,7 @@ import boto3
 HUGGINGFACE_API_TOKEN = "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"
 API_URL_IMAGE = "https://api-inference.huggingface.co/models/dataautogpt3/ProteusV0.2"
 API_URL_IMAGE_V2 = "https://api-inference.huggingface.co/models/alvdansen/BandW-Manga"
+API_URL_IMAGE_V3 = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0"
 
 # Initialisation de l'application Flask
 app = Flask(__name__)
@@ -79,7 +80,7 @@ def generate_images_from_prompts(prompts, code):
         for attempt in range(max_retries):
             try:
                 logging.debug(f"Sending request to Hugging Face API with prompt: {prompt}")
-                response = requests.post(API_URL_IMAGE_V2, headers=headers, json={"inputs": prompt})
+                response = requests.post(API_URL_IMAGE_V3, headers=headers, json={"inputs": prompt})
                 logging.debug(f"Response status code: {response.status_code}")
                 response.raise_for_status()
 
