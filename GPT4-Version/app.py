@@ -430,36 +430,36 @@ def get_results(job_id):
         return "Still processing", 202
 
 
-# @app.route('/api/generate_text', methods=['POST'])
-# def api_generate_text():
-#     data = request.get_json()
-#     prompt = data.get('prompt')
-#     if not prompt:
-#         return jsonify({"error": "Prompt is required"}), 400
-#
-#     API_URL = "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1"
-#     API_TOKEN = "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"
-#     headers = {"Authorization": f"Bearer {API_TOKEN}"}
-#
-#     logging.debug(f"Sending request to Hugging Face API with prompt: {prompt}")
-#
-#     response = requests.post(API_URL, headers=headers, json={"inputs": prompt})
-#
-#     logging.debug(f"Hugging Face API response status: {response.status_code}")
-#     logging.debug(f"Hugging Face API response content: {response.content}")
-#
-#     if response.status_code != 200:
-#         return jsonify({"error": "Failed to generate response from model"}), response.status_code
-#
-#     response_json = response.json()
-#     logging.debug(f"Hugging Face API response JSON: {response_json}")
-#
-#     if isinstance(response_json, list) and len(response_json) > 0 and 'generated_text' in response_json[0]:
-#         generated_text = response_json[0]['generated_text']
-#     else:
-#         generated_text = 'No response'
-#
-#     return jsonify({"response": generated_text}), 200
+@app.route('/api/generate_text', methods=['POST'])
+def api_generate_text():
+    data = request.get_json()
+    prompt = data.get('prompt')
+    if not prompt:
+        return jsonify({"error": "Prompt is required"}), 400
+
+    API_URL = "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1"
+    API_TOKEN = "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"
+    headers = {"Authorization": f"Bearer {API_TOKEN}"}
+
+    logging.debug(f"Sending request to Hugging Face API with prompt: {prompt}")
+
+    response = requests.post(API_URL, headers=headers, json={"inputs": prompt})
+
+    logging.debug(f"Hugging Face API response status: {response.status_code}")
+    logging.debug(f"Hugging Face API response content: {response.content}")
+
+    if response.status_code != 200:
+        return jsonify({"error": "Failed to generate response from model"}), response.status_code
+
+    response_json = response.json()
+    logging.debug(f"Hugging Face API response JSON: {response_json}")
+
+    if isinstance(response_json, list) and len(response_json) > 0 and 'generated_text' in response_json[0]:
+        generated_text = response_json[0]['generated_text']
+    else:
+        generated_text = 'No response'
+
+    return jsonify({"response": generated_text}), 200
 
 
 @app.route('/api/generate_images', methods=['POST'])
