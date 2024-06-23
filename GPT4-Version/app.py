@@ -46,6 +46,9 @@ AWS_SECRET_ACCESS_KEY = 'RPEQw0rg7rjArpri1Ti7QsotqSCgJnUurw3dYZmt'
 AWS_REGION = 'eu-west-1'
 
 def text_to_speech(text, output_filename, voice_id='Joanna'):
+    # Log the voice_id being used
+    logging.debug(f"Using voice_id: {voice_id}")
+
     # Initialiser le client Polly
     polly_client = boto3.Session(
         aws_access_key_id=AWS_ACCESS_KEY_ID,
@@ -63,6 +66,9 @@ def text_to_speech(text, output_filename, voice_id='Joanna'):
     # Enregistrer le fichier audio
     with open(output_filename, 'wb') as file:
         file.write(response['AudioStream'].read())
+
+    logging.debug(f"Audio saved to {output_filename}")
+
 
 def format_response(chat_history):
     formatted_text = ""
@@ -237,6 +243,11 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
     # Nettoyer les fichiers audio temporaires
     for audio_file in os.listdir(audio_dir):
         os.remove(os.path.join(audio_dir, audio_file))
+
+    # Exemple d'appel de la fonction avec le voice_id spécifié
+    create_video_with_text(images_data, 'output_video.mp4', prompts, voice_id='Matthew')
+
+
 
 
 @app.route('/', methods=['GET', 'POST'])
