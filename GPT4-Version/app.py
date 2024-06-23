@@ -241,12 +241,12 @@ def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
     return np.array(image)
 
 
-def split_text_into_segments(text, max_length):
+def split_text_into_segments(text, segment_length=10):
     words = text.split()
     segments = []
     current_segment = ""
     for word in words:
-        if len(current_segment) + len(word) + 1 <= max_length:
+        if len(current_segment.split()) < segment_length:
             current_segment = f"{current_segment} {word}".strip()
         else:
             segments.append(current_segment)
@@ -271,17 +271,13 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
         text_to_speech(prompt, audio_filename, voice_id)
         speech_clip = AudioFileClip(audio_filename)
 
-        image = Image.open(img_data).convert('RGBA')
-        img_array = np.array(image)
-
-        # Create the video clip with text appearing in sync with the audio
-        segments = split_text_into_segments(prompt, max_length=80)
-        duration_per_segment = speech_clip.duration / len(segments)
+        segments = split_text_into_segments(prompt)
+        durations = [speech_clip.duration / len(segments)] * len(segments)
         subclips = []
 
         for i, segment in enumerate(segments):
-            img_with_text = text_to_image(img_array, segment, font_size=48)
-            img_clip = ImageClip(img_with_text).set_duration(duration_per_segment).set_start(i * duration_per_segment)
+            img_with_text = text_to_image(np.array(Image.open(img_data).convert('RGBA')), segment, font_size=48)
+            img_clip = ImageClip(img_with_text).set_duration(durations[i]).set_start(sum(durations[:i]))
             subclips.append(img_clip)
 
         video = CompositeVideoClip(subclips).set_audio(speech_clip)
@@ -289,8 +285,6 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
         audio_clips.append(speech_clip)
 
         # Free memory after processing the image
-        del image
-        del img_array
         del img_with_text
         for clip in subclips:
             clip.close()
