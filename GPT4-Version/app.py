@@ -19,6 +19,7 @@ from worker import conn
 import logging
 import time
 from requests.exceptions import HTTPError
+import boto3
 
 HUGGINGFACE_API_TOKEN = "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"  # Remplacezm
 API_URL_IMAGE = "https://api-inference.huggingface.co/models/dataautogpt3/ProteusV0.2"
@@ -38,9 +39,30 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 HEADERS_LIST = [{"Authorization": f"Bearer {HUGGINGFACE_API_TOKEN}"}]
 
+
+# Configuration AWS
+AWS_ACCESS_KEY_ID = 'AKIAVRUVT3YMY5C23CNL'
+AWS_SECRET_ACCESS_KEY = 'RPEQw0rg7rjArpri1Ti7QsotqSCgJnUurw3dYZm'
+AWS_REGION = 'eu-west-1'
+
 def text_to_speech(text, output_filename):
-    tts = gTTS(text=text, lang='en')
-    tts.save(output_filename)
+    # Initialiser le client Polly
+    polly_client = boto3.Session(
+        aws_access_key_id=AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+        region_name=AWS_REGION
+    ).client('polly')
+
+    # Convertir le texte en parole
+    response = polly_client.synthesize_speech(
+        Text=text,
+        OutputFormat='mp3',
+        VoiceId='Joanna'  # Vous pouvez changer la voix ici
+    )
+
+    # Enregistrer le fichier audio
+    with open(output_filename, 'wb') as file:
+        file.write(response['AudioStream'].read())
 
 def format_response(chat_history):
     formatted_text = ""
