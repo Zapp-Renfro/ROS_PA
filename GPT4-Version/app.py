@@ -265,20 +265,6 @@ def create_video_with_text(images_data, output_video, prompts, fps=1,
     for audio_file in os.listdir(audio_dir):
         os.remove(os.path.join(audio_dir, audio_file))
 
-
-def truncate_text(text, min_length, max_length):
-    if len(text) <= max_length:
-        return text
-
-    truncated_text = text[:max_length]
-    if len(truncated_text) >= min_length:
-        # Find the last period in the truncated text
-        last_period_index = truncated_text.rfind('.')
-        if last_period_index != -1:
-            return truncated_text[:last_period_index + 1]
-
-    return truncated_text
-
 @app.route('/', methods=['GET', 'POST'])
 def generate_text():
     if request.method == 'POST':
@@ -289,10 +275,12 @@ def generate_text():
         API_TOKEN = "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"  # Remplacez par votre jeton API Hugging Face
         headers = {"Authorization": f"Bearer {API_TOKEN}"}
 
+        # Log the request for debugging purposes
         logging.debug(f"Sending request to Hugging Face API with prompt: {prompt}")
 
         response = requests.post(API_URL_TEXT, headers=headers, json={"inputs": prompt, "max_tokens": 1024})
 
+        # Log the response status code and content for debugging purposes
         logging.debug(f"Hugging Face API response status: {response.status_code}")
         logging.debug(f"Hugging Face API response content: {response.content}")
 
@@ -302,16 +290,14 @@ def generate_text():
         response_json = response.json()
         logging.debug(f"Hugging Face API response JSON: {response_json}")
 
+        # Handling different possible response structures
         if isinstance(response_json, list) and len(response_json) > 0 and 'generated_text' in response_json[0]:
             generated_text = response_json[0]['generated_text']
         else:
             generated_text = 'No response'
 
-        # Truncate generated text to between 800 and 1000 characters, ending at a sentence boundary
-        truncated_text = truncate_text(generated_text, min_length=800, max_length=1000)
-
         # Stocker dans Supabase
-        data = {"prompt": prompt, "response": truncated_text}
+        data = {"prompt": prompt, "response": generated_text}
         logging.debug(f"Data to insert into prompts: {data}")
         try:
             supabase.table('prompts').insert(data).execute()
@@ -319,7 +305,7 @@ def generate_text():
             logging.error(f"Error inserting data into prompts: {str(e)}")
             return jsonify({"error": str(e)}), 400
 
-        return render_template('result.html', response=truncated_text, image_prompt=truncated_text)
+        return render_template('result.html', response=generated_text, image_prompt=generated_text)
     else:
         return render_template('index.html')
 
