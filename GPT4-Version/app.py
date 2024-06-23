@@ -178,7 +178,67 @@ def text_to_image(img_array, text, font_path='arialbd.ttf', font_size=36, text_c
 
     return np.array(image)
 
-def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path='static/music/relaxing-piano-201831.mp3'):
+
+def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
+                  outline_color=(0, 0, 0), shadow_color=(50, 50, 50), max_width=None):
+    logging.debug("Entering text_to_image function")
+    image = Image.fromarray(img_array)
+    draw = ImageDraw.Draw(image)
+    try:
+        font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+        font = ImageFont.truetype(font_path, font_size)
+        logging.debug(f"Font loaded: {font_path} with size {font_size}")
+    except IOError:
+        font = ImageFont.load_default()
+        logging.warning("Font not found, using default font")
+
+    if max_width is None:
+        max_width = image.width - 40  # Ajouter une marge de 20 pixels de chaque côté
+    logging.debug(f"Max width for text: {max_width}")
+
+    lines = []
+    words = text.split()
+    current_line = ""
+    for word in words:
+        test_line = f"{current_line} {word}".strip()
+        text_bbox = draw.textbbox((0, 0), test_line, font=font)
+        text_width = text_bbox[2] - text_bbox[0]
+        if text_width <= max_width:
+            current_line = test_line
+        else:
+            lines.append(current_line)
+            current_line = word
+    lines.append(current_line)
+    logging.debug(f"Text split into lines: {lines}")
+
+    total_text_height = sum(
+        [draw.textbbox((0, 0), line, font=font)[3] - draw.textbbox((0, 0), line, font=font)[1] for line in lines])
+    current_height = (image.height - total_text_height) / 2
+
+    for line in lines:
+        text_bbox = draw.textbbox((0, 0), line, font=font)
+        text_width = text_bbox[2] - text_bbox[0]
+        text_height = text_bbox[3] - text_bbox[1]
+        text_position = ((image.width - text_width) / 2, current_height)
+        logging.debug(f"Drawing text: {line} at position {text_position}")
+
+        shadow_offset = 2
+        draw.text((text_position[0] + shadow_offset, text_position[1] + shadow_offset), line, font=font,
+                  fill=shadow_color)
+        outline_range = 1
+        for x in range(-outline_range, outline_range + 1):
+            for y in range(-outline_range, outline_range + 1):
+                if x != 0 or y != 0:
+                    draw.text((text_position[0] + x, text_position[1] + y), line, font=font, fill=outline_color)
+        draw.text(text_position, line, font=font, fill=text_color)
+
+        current_height += text_height
+
+    logging.debug("Exiting text_to_image function")
+    return np.array(image)
+
+def create_video_with_text(images_data, output_video, prompts, fps=1,
+                           audio_path='static/music/relaxing-piano-201831.mp3'):
     audio_clips = []
     video_clips = []
 
@@ -196,8 +256,8 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
         image = Image.open(img_data).convert('RGBA')
         img_array = np.array(image)
 
-        # Ajouter le texte directement sur l'image
-        img_with_text = text_to_image(img_array, prompt, font_path='arialbd.ttf', font_size=36)
+        # Ajouter le texte directement sur l'image avec les améliorations
+        img_with_text = text_to_image(img_array, prompt, font_size=48)
 
         img_clip = ImageClip(img_with_text).set_duration(speech_clip.duration)
         video = img_clip.set_audio(speech_clip)
@@ -222,6 +282,8 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
     # Nettoyer les fichiers audio temporaires
     for audio_file in os.listdir(audio_dir):
         os.remove(os.path.join(audio_dir, audio_file))
+
+
 
 @app.route('/', methods=['GET', 'POST'])
 def generate_text():
@@ -537,7 +599,7 @@ def final_video():
         logging.error(f"Error inserting video data into Supabase: {e}")
         video_url = None
 
-    return render_template('video_result.html', video_url=video_url)
+    return render_template('show_video.html', video_url=video_url)
 
 
 @app.route('/show_video')
