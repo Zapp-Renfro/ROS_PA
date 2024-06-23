@@ -92,7 +92,7 @@ def upload_video_to_supabase(file_path, file_name):
     return res
 
 
-def text_to_speech(text, output_filename, voice_id='Michael'):
+def text_to_speech(text, output_filename, voice_id='Miguel'):
     logging.debug(f"Using voice_id: {voice_id}")
     polly_client = boto3.Session(
         aws_access_key_id=AWS_ACCESS_KEY_ID,
@@ -241,7 +241,7 @@ def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
     logging.debug("Exiting text_to_image function")
     return np.array(image)
 
-def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Michael'):
+def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Miguel'):
     audio_clips = []
     video_clips = []
 
@@ -320,7 +320,7 @@ def create_video():
         os.makedirs('static/videos')
 
     create_video_with_text(images_data, output_video, prompts, audio_path='static/music/relaxing-piano-201831.mp3',
-                           voice_id='Michael')
+                           voice_id='Miguel')
 
     with open(output_video, 'rb') as video_file:
         video_blob = video_file.read()
@@ -430,36 +430,36 @@ def get_results(job_id):
         return "Still processing", 202
 
 
-@app.route('/api/generate_text', methods=['POST'])
-def api_generate_text():
-    data = request.get_json()
-    prompt = data.get('prompt')
-    if not prompt:
-        return jsonify({"error": "Prompt is required"}), 400
-
-    API_URL = "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1"
-    API_TOKEN = "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"
-    headers = {"Authorization": f"Bearer {API_TOKEN}"}
-
-    logging.debug(f"Sending request to Hugging Face API with prompt: {prompt}")
-
-    response = requests.post(API_URL, headers=headers, json={"inputs": prompt})
-
-    logging.debug(f"Hugging Face API response status: {response.status_code}")
-    logging.debug(f"Hugging Face API response content: {response.content}")
-
-    if response.status_code != 200:
-        return jsonify({"error": "Failed to generate response from model"}), response.status_code
-
-    response_json = response.json()
-    logging.debug(f"Hugging Face API response JSON: {response_json}")
-
-    if isinstance(response_json, list) and len(response_json) > 0 and 'generated_text' in response_json[0]:
-        generated_text = response_json[0]['generated_text']
-    else:
-        generated_text = 'No response'
-
-    return jsonify({"response": generated_text}), 200
+# @app.route('/api/generate_text', methods=['POST'])
+# def api_generate_text():
+#     data = request.get_json()
+#     prompt = data.get('prompt')
+#     if not prompt:
+#         return jsonify({"error": "Prompt is required"}), 400
+#
+#     API_URL = "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1"
+#     API_TOKEN = "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"
+#     headers = {"Authorization": f"Bearer {API_TOKEN}"}
+#
+#     logging.debug(f"Sending request to Hugging Face API with prompt: {prompt}")
+#
+#     response = requests.post(API_URL, headers=headers, json={"inputs": prompt})
+#
+#     logging.debug(f"Hugging Face API response status: {response.status_code}")
+#     logging.debug(f"Hugging Face API response content: {response.content}")
+#
+#     if response.status_code != 200:
+#         return jsonify({"error": "Failed to generate response from model"}), response.status_code
+#
+#     response_json = response.json()
+#     logging.debug(f"Hugging Face API response JSON: {response_json}")
+#
+#     if isinstance(response_json, list) and len(response_json) > 0 and 'generated_text' in response_json[0]:
+#         generated_text = response_json[0]['generated_text']
+#     else:
+#         generated_text = 'No response'
+#
+#     return jsonify({"response": generated_text}), 200
 
 
 @app.route('/api/generate_images', methods=['POST'])
