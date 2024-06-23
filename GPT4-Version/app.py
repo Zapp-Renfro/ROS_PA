@@ -22,6 +22,12 @@ import logging
 import time
 from requests.exceptions import HTTPError
 import tempfile
+from mistral_common.tokens.tokenizers.mistral import MistralTokenizer
+from mistral_common.protocol.instruct.messages import UserMessage
+from mistral_common.protocol.instruct.request import ChatCompletionRequest
+from mistral_inference.model import Transformer
+from mistral_inference.generate import generate
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 
 JAMENDO_CLIENT_ID = "1fe12850"
@@ -259,49 +265,54 @@ def create_video_with_text(images_data, output_video, prompts, fps=1,
     for audio_file in os.listdir(audio_dir):
         os.remove(os.path.join(audio_dir, audio_file))
 
+
+# Tokenizer and model setup
+model_id = "mistralai/Mixtral-8x7B-Instruct-v0.1"
+tokenizer = AutoTokenizer.from_pretrained(model_id)
+model = AutoModelForCausalLM.from_pretrained(model_id, device_map="auto")
+
+
 @app.route('/', methods=['GET', 'POST'])
 def generate_text():
     if request.method == 'POST':
         prompt = request.form['prompt']
 
-        # Appel à l'API de Hugging Face avec le modèle gpt-neo-2.7B
-        API_URL_TEXT = "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1"
-        API_TOKEN = "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"  # Remplacez par votre jeton API Hugging Face
-        headers = {"Authorization": f"Bearer {API_TOKEN}"}
+        # Prepare inputs
+        messages = [{"role": "user", "content": prompt}]
+        inputs = tokenizer.apply_chat_template(messages, return_tensors="pt").to("cuda")
 
-        # Log the request for debugging purposes
-        logging.debug(f"Sending request to Hugging Face API with prompt: {prompt}")
+        # Generate text
+        outputs = model.generate(inputs, max_new_tokens=1000, do_sample=True)
+        generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
 
-        response = requests.post(API_URL_TEXT, headers=headers, json={"inputs": prompt})
+        # Truncate generated text
+        truncated_text = truncate_text(generated_text, min_length=800, max_length=1000)
 
-        # Log the response status code and content for debugging purposes
-        logging.debug(f"Hugging Face API response status: {response.status_code}")
-        logging.debug(f"Hugging Face API response content: {response.content}")
-
-        if response.status_code != 200:
-            return jsonify({"error": "Failed to generate response from model"}), response.status_code
-
-        response_json = response.json()
-        logging.debug(f"Hugging Face API response JSON: {response_json}")
-
-        # Handling different possible response structures
-        if isinstance(response_json, list) and len(response_json) > 0 and 'generated_text' in response_json[0]:
-            generated_text = response_json[0]['generated_text']
-        else:
-            generated_text = 'No response'
-
-        # Stocker dans Supabase
-        data = {"prompt": prompt, "response": generated_text}
-        logging.debug(f"Data to insert into prompts: {data}")
+        # Log and store in database
+        logging.debug(f"Generated text: {truncated_text}")
+        data = {"prompt": prompt, "response": truncated_text}
         try:
             supabase.table('prompts').insert(data).execute()
         except Exception as e:
             logging.error(f"Error inserting data into prompts: {str(e)}")
             return jsonify({"error": str(e)}), 400
 
-        return render_template('result.html', response=generated_text, image_prompt=generated_text)
+        return render_template('result.html', response=truncated_text, image_prompt=truncated_text)
     else:
         return render_template('index.html')
+
+
+def truncate_text(text, min_length, max_length):
+    if len(text) <= max_length:
+        return text
+
+    truncated_text = text[:max_length]
+    if len(truncated_text) >= min_length:
+        last_period_index = truncated_text.rfind('.')
+        if last_period_index != -1:
+            return truncated_text[:last_period_index + 1]
+
+    return truncated_text
 
 @app.route('/history', methods=['GET'])
 def get_history():
