@@ -45,8 +45,8 @@ AWS_ACCESS_KEY_ID = 'AKIAVRUVT3YMY5C23CNL'
 AWS_SECRET_ACCESS_KEY = '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'
 AWS_REGION = 'eu-west-1'
 
-def text_to_speech(text, output_filename):
-    # Initialiser le client Pollym
+def text_to_speech(text, output_filename, voice_id='Joanna'):
+    # Initialiser le client Polly
     polly_client = boto3.Session(
         aws_access_key_id=AWS_ACCESS_KEY_ID,
         aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
@@ -57,7 +57,7 @@ def text_to_speech(text, output_filename):
     response = polly_client.synthesize_speech(
         Text=text,
         OutputFormat='mp3',
-        VoiceId='Joanna'  # Vous pouvez changer la voix ici
+        VoiceId=voice_id
     )
 
     # Enregistrer le fichier audio
@@ -193,8 +193,7 @@ def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
     return np.array(image)
 
 
-def create_video_with_text(images_data, output_video, prompts, fps=1,
-                           audio_path='static/music/relaxing-piano-201831.mp3'):
+def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Joanna'):
     audio_clips = []
     video_clips = []
 
@@ -205,14 +204,14 @@ def create_video_with_text(images_data, output_video, prompts, fps=1,
 
     for img_data, prompt in zip(images_data, prompts):
         audio_filename = os.path.join(audio_dir, f"{prompt[:10]}_audio.mp3")
-        text_to_speech(prompt, audio_filename)
+        text_to_speech(prompt, audio_filename, voice_id)
         speech_clip = AudioFileClip(audio_filename)
 
         # Convertir les données d'image en tableau NumPy
         image = Image.open(img_data).convert('RGBA')
         img_array = np.array(image)
 
-        # Ajouter le texte directement sur l'image avec les améliorations
+        # Ajouter le texte directement sur l'image
         img_with_text = text_to_image(img_array, prompt, font_size=48)
 
         img_clip = ImageClip(img_with_text).set_duration(speech_clip.duration)
