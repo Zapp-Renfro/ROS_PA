@@ -1,9 +1,11 @@
 import boto3
 from flask import Flask, request, render_template, jsonify, session, url_for, redirect
+
 from datetime import datetime
 import os
 from moviepy.editor import ImageClip, TextClip, CompositeVideoClip, concatenate_videoclips, AudioFileClip, \
     concatenate_audioclips, CompositeAudioClip
+
 from moviepy.video.io.VideoFileClip import VideoFileClip
 from supabase import create_client, Client
 import requests
@@ -20,7 +22,6 @@ import logging
 import time
 from requests.exceptions import HTTPError
 import tempfile
-from moviepy.editor import TextClip, CompositeVideoClip
 
 
 
@@ -90,7 +91,8 @@ def upload_video_to_supabase(file_path, file_name):
         res = supabase.storage().from_('videos').upload(file_name, file)
     return res
 
-def text_to_speech_with_timestamps(text, output_filename, voice_id='Joanna'):
+
+def text_to_speech(text, output_filename, voice_id='Miguel'):
     logging.debug(f"Using voice_id: {voice_id}")
     polly_client = boto3.Session(
         aws_access_key_id=AWS_ACCESS_KEY_ID,
@@ -98,35 +100,14 @@ def text_to_speech_with_timestamps(text, output_filename, voice_id='Joanna'):
         region_name=AWS_REGION
     ).client('polly')
 
-    try:
-        response = polly_client.synthesize_speech(
-            Text=text,
-            OutputFormat='json',
-            VoiceId=voice_id,
-            SpeechMarkTypes=['word']
-        )
-    except Exception as e:
-        logging.error(f"Error synthesizing speech: {e}")
-        return None
+    response = polly_client.synthesize_speech(
+        Text=text,
+        OutputFormat='mp3',
+        VoiceId=voice_id
+    )
 
-    if 'AudioStream' in response:
-        with open(output_filename, 'wb') as file:
-            file.write(response['AudioStream'].read())
-    else:
-        logging.error("AudioStream not found in Polly response")
-        return None
-
-    speech_marks = []
-    if 'SpeechMarks' in response:
-        speech_marks = response['SpeechMarks']
-    else:
-        logging.error("SpeechMarks not found in Polly response")
-        return None
-
-    timestamps = [(mark['value'], float(mark['start_time']) / 1000, float(mark['end_time']) / 1000) for mark in speech_marks]
-    return timestamps
-
-
+    with open(output_filename, 'wb') as file:
+        file.write(response['AudioStream'].read())
 
 
 
@@ -259,7 +240,8 @@ def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
 
     logging.debug("Exiting text_to_image function")
     return np.array(image)
-def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Joanna'):
+
+def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Miguel'):
     audio_clips = []
     video_clips = []
 
@@ -272,23 +254,18 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
 
     for img_data, prompt in zip(images_data, prompts):
         audio_filename = os.path.join(audio_dir, f"{prompt[:10]}_audio.mp3")
-        timestamps = text_to_speech_with_timestamps(prompt, audio_filename, voice_id)
+        text_to_speech(prompt, audio_filename, voice_id)
         speech_clip = AudioFileClip(audio_filename)
 
-        subclips = []
-        for word, start_time, end_time in timestamps:
-            img_with_text = text_to_image(np.array(Image.open(img_data).convert('RGBA')), word, font_size=48)
-            img_clip = ImageClip(img_with_text).set_start(start_time).set_duration(end_time - start_time)
-            subclips.append(img_clip)
+        image = Image.open(img_data).convert('RGBA')
+        img_array = np.array(image)
 
-        video = CompositeVideoClip(subclips).set_audio(speech_clip)
+        img_with_text = text_to_image(img_array, prompt, font_size=48)
+
+        img_clip = ImageClip(img_with_text).set_duration(speech_clip.duration)
+        video = img_clip.set_audio(speech_clip)
         video_clips.append(video)
         audio_clips.append(speech_clip)
-
-        # Free memory after processing the image
-        del img_with_text
-        for clip in subclips:
-            clip.close()
 
     if not video_clips:
         logging.error("No video clips were created. Ensure that image data and prompts are valid.")
@@ -303,13 +280,6 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
     final_video = final_video.set_audio(final_audio)
 
     final_video.write_videofile(output_video, fps=fps, codec='libx264')
-
-    # Free memory by closing video and audio clips
-    final_video.close()
-    for audio_clip in audio_clips:
-        audio_clip.close()
-    for video_clip in video_clips:
-        video_clip.close()
 
     for audio_file in os.listdir(audio_dir):
         os.remove(os.path.join(audio_dir, audio_file))
@@ -350,7 +320,7 @@ def create_video():
         os.makedirs('static/videos')
 
     create_video_with_text(images_data, output_video, prompts, audio_path='static/music/relaxing-piano-201831.mp3',
-                           voice_id='Joanna')
+                           voice_id='Miguel')
 
     with open(output_video, 'rb') as video_file:
         video_blob = video_file.read()
@@ -458,7 +428,6 @@ def get_results(job_id):
         return jsonify({"image_urls": image_urls}), 200
     else:
         return "Still processing", 202
-
 
 
 @app.route('/api/generate_text', methods=['POST'])
