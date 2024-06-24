@@ -90,7 +90,6 @@ def upload_video_to_supabase(file_path, file_name):
         res = supabase.storage().from_('videos').upload(file_name, file)
     return res
 
-
 def text_to_speech_with_timestamps(text, output_filename, voice_id='Joanna'):
     logging.debug(f"Using voice_id: {voice_id}")
     polly_client = boto3.Session(
@@ -99,25 +98,34 @@ def text_to_speech_with_timestamps(text, output_filename, voice_id='Joanna'):
         region_name=AWS_REGION
     ).client('polly')
 
-    response = polly_client.synthesize_speech(
-        Text=text,
-        OutputFormat='json',
-        VoiceId=voice_id,
-        SpeechMarkTypes=['word']
-    )
+    try:
+        response = polly_client.synthesize_speech(
+            Text=text,
+            OutputFormat='json',
+            VoiceId=voice_id,
+            SpeechMarkTypes=['word']
+        )
+    except Exception as e:
+        logging.error(f"Error synthesizing speech: {e}")
+        return None
 
     if 'AudioStream' in response:
         with open(output_filename, 'wb') as file:
             file.write(response['AudioStream'].read())
+    else:
+        logging.error("AudioStream not found in Polly response")
+        return None
 
     speech_marks = []
     if 'SpeechMarks' in response:
         speech_marks = response['SpeechMarks']
     else:
         logging.error("SpeechMarks not found in Polly response")
+        return None
 
     timestamps = [(mark['value'], float(mark['start_time']) / 1000, float(mark['end_time']) / 1000) for mark in speech_marks]
     return timestamps
+
 
 
 
