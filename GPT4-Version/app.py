@@ -327,6 +327,9 @@ def generate_text():
         logging.debug(f"Data to insert into prompts: {data}")
         try:
             supabase.table('prompts').insert(data).execute()
+            result = supabase.table('prompts').insert(data).execute()
+            prompt_id = result.data[0]['id']  # Retrieve the ID of the inserted prompt
+            session['prompt_id'] = prompt_id
         except Exception as e:
             logging.error(f"Error inserting data into prompts: {str(e)}")
             return jsonify({"error": str(e)}), 400
@@ -497,8 +500,11 @@ def final_video():
         return "Aperçu audio non trouvé.", 404
 
     # Retrieve the generated text from Supabase
-    code = session.get('code')
-    response = supabase.table('prompts').select('response').eq('code', code).execute()
+    prompt_id = session.get('prompt_id')  # Assuming you store the prompt ID in session
+    if not prompt_id:
+        return "ID du prompt non trouvé dans la session.", 400
+
+    response = supabase.table('prompts').select('response').eq('id', prompt_id).execute()
     if not response.data:
         return "Texte généré non trouvé.", 404
 
