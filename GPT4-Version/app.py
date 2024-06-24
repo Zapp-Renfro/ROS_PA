@@ -106,12 +106,19 @@ def text_to_speech_with_timestamps(text, output_filename, voice_id='Joanna'):
         SpeechMarkTypes=['word']
     )
 
-    with open(output_filename, 'wb') as file:
-        file.write(response['AudioStream'].read())
+    if 'AudioStream' in response:
+        with open(output_filename, 'wb') as file:
+            file.write(response['AudioStream'].read())
 
-    speech_marks = response['SpeechMarks']
+    speech_marks = []
+    if 'SpeechMarks' in response:
+        speech_marks = response['SpeechMarks']
+    else:
+        logging.error("SpeechMarks not found in Polly response")
+
     timestamps = [(mark['value'], float(mark['start_time']) / 1000, float(mark['end_time']) / 1000) for mark in speech_marks]
     return timestamps
+
 
 
 
