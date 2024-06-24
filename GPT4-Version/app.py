@@ -242,7 +242,10 @@ def create_video():
     if not code:
         logging.error("No code provided for video creation.")
         return "No code provided", 400
+
     logging.info(f"Creating video for code: {code} with prompts: {prompts}")
+
+    # Retrieve images from Supabase
     response = supabase.table('images').select('image_blob').eq('code', code).execute()
     if response.data:
         images_data = []
@@ -256,34 +259,47 @@ def create_video():
                     logging.error(f"Failed to decode image for code {code}: {e}")
     else:
         logging.error(f"No images found for code {code}.")
-        images_data = []
+        return "No valid images found", 400
+
+    # Check if images data is empty
     if not images_data:
         logging.error(f"No valid images found for code {code}.")
         return "No valid images found", 400
-    output_video = 'static/videos/output_video.mp4'
-    if not os.path.exists('static/videos'):
-        os.makedirs('static/videos')
-    create_video_with_text(images_data, output_video, prompts, audio_path='static/music/relaxing-piano-201831.mp3',
+
+    video_blob = BytesIO()
+    create_video_with_text(images_data, video_blob, prompts, audio_path='static/music/relaxing-piano-201831.mp3',
                            voice_id='Miguel')
-    session['video_path'] = output_video
-    with open(output_video, 'rb') as video_file:
-        video_blob = video_file.read()
-    video_base64 = base64.b64encode(video_blob).decode('utf-8')
+
+    # Save video to Supabase
+    video_base64 = base64.b64encode(video_blob.getvalue()).decode('utf-8')
     video_data = {
-        "filename": os.path.basename(output_video),
+        "filename": f"{code}_output_video.mp4",
         "video_blob": video_base64
     }
+
     try:
-        supabase.table('videos').insert(video_data).execute()
+        response = supabase.table('videos').insert(video_data).execute()
         video_url = f"data:video/mp4;base64,{video_base64}"
+        session['video_path'] = video_url  # Save the video URL in session
     except Exception as e:
         logging.error(f"Error inserting video data into Supabase: {e}")
-        video_url = None
+        return "Error saving video", 500
+
     return render_template('video_result.html', video_url=video_url)
+
 
 @app.route('/', methods=['GET'])
 def index():
     return render_template('index.html')
+
+@app.route('/use_text', methods=['POST'])
+def use_text():
+    prompt = request.form.get('prompt2')
+    if prompt:
+        # Directement utiliser le texte fourni
+        return render_template('result.html', response=prompt, image_prompt=prompt)
+    else:
+        return jsonify({"error": "Prompt is required"}), 400
 
 @app.route('/generate_text', methods=['POST'])
 def generate_text():
@@ -459,7 +475,6 @@ def final_video():
     preview_url = request.form.get('preview_url')
     music_start_time = int(request.form.get('start_time'))
     music_end_time = int(request.form.get('end_time'))
-
     # Path to the existing video file
     video_path = session.get('video_path')
     if not os.path.exists(video_path):
