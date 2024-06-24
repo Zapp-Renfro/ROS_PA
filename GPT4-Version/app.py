@@ -106,6 +106,7 @@ def text_to_speech(text, output_filename, voice_id='Miguel'):
         VoiceId=voice_id
     )
 
+
     with open(output_filename, 'wb') as file:
         file.write(response['AudioStream'].read())
 
