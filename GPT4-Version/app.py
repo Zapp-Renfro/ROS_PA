@@ -538,16 +538,10 @@ def final_video():
     voice_clip = None
     try:
         # Load the existing video clip
-        video_clip = VideoFileClip(video_path)
-
+        video_clip = VideoFileClip(video_path).subclip(0, music_segment_duration)
         # Add the audio file to the video
         audio_clip = AudioFileClip(audio_path).subclip(music_start_time, music_end_time)
-
-        # Add the generated voice clip to the video
-        voice_clip = AudioFileClip(voice_audio_path)
-        final_audio = CompositeAudioClip([audio_clip.volumex(0.4), voice_clip.set_duration(video_clip.duration)])
-        video_clip = video_clip.set_audio(final_audio)
-
+        video_clip = video_clip.set_audio(audio_clip)
         # Write the new video file
         video_clip.write_videofile(output_video_path, codec="libx264", fps=24)
         session['new_video_path'] = output_video_path
