@@ -91,7 +91,7 @@ def upload_video_to_supabase(file_path, file_name):
     return res
 
 
-def text_to_speech(text, output_filename, voice_id='Joanna'):
+def text_to_speech_with_timestamps(text, output_filename, voice_id='Joanna'):
     logging.debug(f"Using voice_id: {voice_id}")
     polly_client = boto3.Session(
         aws_access_key_id=AWS_ACCESS_KEY_ID,
@@ -101,12 +101,17 @@ def text_to_speech(text, output_filename, voice_id='Joanna'):
 
     response = polly_client.synthesize_speech(
         Text=text,
-        OutputFormat='mp3',
-        VoiceId=voice_id
+        OutputFormat='json',
+        VoiceId=voice_id,
+        SpeechMarkTypes=['word']
     )
 
     with open(output_filename, 'wb') as file:
         file.write(response['AudioStream'].read())
+
+    speech_marks = response['SpeechMarks']
+    timestamps = [(mark['value'], float(mark['start_time']) / 1000, float(mark['end_time']) / 1000) for mark in speech_marks]
+    return timestamps
 
 
 
@@ -239,23 +244,7 @@ def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
 
     logging.debug("Exiting text_to_image function")
     return np.array(image)
-
-
-def split_text_into_segments(text, segment_length=10):
-    words = text.split()
-    segments = []
-    current_segment = ""
-    for word in words:
-        if len(current_segment.split()) < segment_length:
-            current_segment = f"{current_segment} {word}".strip()
-        else:
-            segments.append(current_segment)
-            current_segment = word
-    if current_segment:
-        segments.append(current_segment)
-    return segments
-
-def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Miguel'):
+def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Joanna'):
     audio_clips = []
     video_clips = []
 
@@ -268,16 +257,13 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
 
     for img_data, prompt in zip(images_data, prompts):
         audio_filename = os.path.join(audio_dir, f"{prompt[:10]}_audio.mp3")
-        text_to_speech(prompt, audio_filename, voice_id)
+        timestamps = text_to_speech_with_timestamps(prompt, audio_filename, voice_id)
         speech_clip = AudioFileClip(audio_filename)
 
-        segments = split_text_into_segments(prompt)
-        durations = [speech_clip.duration / len(segments)] * len(segments)
         subclips = []
-
-        for i, segment in enumerate(segments):
-            img_with_text = text_to_image(np.array(Image.open(img_data).convert('RGBA')), segment, font_size=48)
-            img_clip = ImageClip(img_with_text).set_duration(durations[i]).set_start(sum(durations[:i]))
+        for word, start_time, end_time in timestamps:
+            img_with_text = text_to_image(np.array(Image.open(img_data).convert('RGBA')), word, font_size=48)
+            img_clip = ImageClip(img_with_text).set_start(start_time).set_duration(end_time - start_time)
             subclips.append(img_clip)
 
         video = CompositeVideoClip(subclips).set_audio(speech_clip)
