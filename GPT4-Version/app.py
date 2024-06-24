@@ -326,10 +326,9 @@ def generate_text():
         data = {"prompt": prompt, "response": generated_text}
         logging.debug(f"Data to insert into prompts: {data}")
         try:
-            supabase.table('prompts').insert(data).execute()
             result = supabase.table('prompts').insert(data).execute()
-            prompt_id = result.data[0]['id']  # Retrieve the ID of the inserted prompt
-            session['prompt_id'] = prompt_id
+            generated_id = result.data[0]['id']  # Assume that the ID is returned in the response
+            session['generated_id'] = generated_id
         except Exception as e:
             logging.error(f"Error inserting data into prompts: {str(e)}")
             return jsonify({"error": str(e)}), 400
@@ -499,37 +498,35 @@ def final_video():
     if not audio_path:
         return "Aperçu audio non trouvé.", 404
 
-    # Retrieve the generated text from Supabase
-    prompt_id = session.get('prompt_id')  # Assuming you store the prompt ID in session
-    if not prompt_id:
-        return "ID du prompt non trouvé dans la session.", 400
+    # Retrieve the generated text using the ID from the session
+    generated_id = session.get('generated_id')
+    if not generated_id:
+        return "ID du texte généré non trouvé dans la session.", 400
 
-    response = supabase.table('prompts').select('response').eq('id', prompt_id).execute()
-    if not response.data:
-        return "Texte généré non trouvé.", 404
-
-    generated_text = response.data[0]['response']
-
-    # Generate the speech from the generated text
-    speech_audio_path = os.path.join(tempfile.gettempdir(), f"{uuid.uuid4()}.mp3")
-    text_to_speech(generated_text, speech_audio_path)
+    try:
+        response = supabase.table('prompts').select('response').eq('id', generated_id).execute()
+        if response.data:
+            generated_text = response.data[0]['response']
+        else:
+            return "Aucun texte généré trouvé.", 404
+    except Exception as e:
+        logging.error(f"Error fetching generated text from Supabase: {e}")
+        return "Erreur lors de la récupération du texte généré.", 500
 
     # Create a temporary file for the new video with audio
     output_video_path = video_path
-
+    audio_clip = None
     try:
         # Load the existing video clip
-        video_clip = VideoFileClip(video_path).subclip(0, video_duration)
-
+        video_clip = VideoFileClip(video_path).subclip(0, music_segment_duration)
         # Add the audio file to the video
         audio_clip = AudioFileClip(audio_path).subclip(music_start_time, music_end_time)
+        video_clip = video_clip.set_audio(audio_clip)
 
-        # Add the generated speech audio to the video
-        speech_audio_clip = AudioFileClip(speech_audio_path).set_start(0).set_duration(video_duration)
-
-        # Combine the audio tracks
-        combined_audio = CompositeAudioClip([audio_clip, speech_audio_clip])
-        video_clip = video_clip.set_audio(combined_audio)
+        # Add generated text as a caption or overlay to the video
+        txt_clip = TextClip(generated_text, fontsize=24, color='white')
+        txt_clip = txt_clip.set_position('bottom').set_duration(video_clip.duration)
+        video_clip = CompositeVideoClip([video_clip, txt_clip])
 
         # Write the new video file
         video_clip.write_videofile(output_video_path, codec="libx264", fps=24)
@@ -539,7 +536,6 @@ def final_video():
         if audio_clip:
             audio_clip.close()
         os.remove(audio_path)
-        os.remove(speech_audio_path)
 
     # Save the new video to Supabase
     with open(output_video_path, 'rb') as video_file:
