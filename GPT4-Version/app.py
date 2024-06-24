@@ -72,6 +72,7 @@ def upload_video_to_supabase(file_path, file_name):
     with open(file_path, 'rb') as file:
         res = supabase.storage().from_('videos').upload(file_name, file)
     return res
+
 def text_to_speech(text, output_filename, voice_id='Miguel'):
     logging.debug(f"Using voice_id: {voice_id}")
     polly_client = boto3.Session(
@@ -96,6 +97,7 @@ def format_response(chat_history):
         elif entry['role'] == 'assistant':
             formatted_text += f"<b>Réponse:</b> {entry['content']}<br><br>"
     return formatted_text
+
 def generate_images_from_prompts(prompts, code):
     filenames = []
     max_retries = 5
@@ -150,6 +152,7 @@ def generate_images_from_prompts(prompts, code):
                 logging.error(f"An error occurred: {err}")
                 break
     return filenames
+
 def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
                   outline_color=(0, 0, 0), shadow_color=(50, 50, 50), max_width=None):
     logging.debug("Entering text_to_image function")
@@ -348,51 +351,6 @@ def generate_text():
         return render_template('index.html')
 
 
-@app.route('/regenerate_image', methods=['POST'])
-def regenerate_image():
-    data = request.get_json()
-    prompt = data.get('prompt')
-    if not prompt:
-        return jsonify({"error": "Prompt is required"}), 400
-
-    # Utiliser le prompt pour générer une nouvelle image
-    headers = random.choice(HEADERS_LIST)
-    response = requests.post(API_URL_IMAGE_V3, headers=headers, json={"inputs": prompt})
-
-    if response.status_code != 200:
-        return jsonify({"error": "Failed to generate image"}), response.status_code
-
-    image_data = response.content
-    try:
-        image = Image.open(BytesIO(image_data))
-    except Exception as e:
-        logging.error(f"Error opening image: {e}")
-        return jsonify({"error": "Failed to open image"}), 500
-
-    # Convertir l'image en URL de base64
-    with BytesIO() as img_byte_arr:
-        image.save(img_byte_arr, format='PNG')
-        img_byte_arr.seek(0)
-        image_base64 = base64.b64encode(img_byte_arr.read()).decode('utf-8')
-
-    image_url = f"data:image/png;base64,{image_base64}"
-
-    # Mettre à jour l'image dans Supabase
-    try:
-        supabase.table('images').delete().eq('prompt_text', prompt).execute()
-        data = {
-            "prompt_text": prompt,
-            "image_blob": image_base64,
-            "filename": f"{uuid.uuid4()}.png"
-        }
-        supabase.table('images').insert(data).execute()
-    except Exception as e:
-        logging.error(f"Error updating image in Supabase: {e}")
-        return jsonify({"error": "Failed to update image in Supabase"}), 500
-
-    return jsonify({"image_url": image_url}), 200
-
-
 @app.route('/history', methods=['GET'])
 def get_history():
     try:
@@ -414,6 +372,8 @@ def generate_images_route():
         func=generate_images_from_prompts, args=(prompts, code), result_ttl=5000
     )
     return render_template('image_result.html', job_id=job.get_id(), prompts=prompts, code=code)
+
+
 
 
 @app.route('/results/<job_id>', methods=['GET'])
