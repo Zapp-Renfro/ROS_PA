@@ -291,10 +291,21 @@ def index():
 def use_text():
     prompt = request.form.get('prompt2')
     if prompt:
+        # Enregistrer dans Supabase
+        data = {"prompt": prompt, "response": prompt}
+        try:
+            result = supabase.table('prompts').insert(data).execute()
+            generated_id = result.data[0]['id']  # Assume that the ID is returned in the response
+            session['generated_id'] = generated_id  # Save the generated ID in the session (optional)
+        except Exception as e:
+            logging.error(f"Error inserting data into prompts: {str(e)}")
+            return jsonify({"error": str(e)}), 400
+
         # Directement utiliser le texte fourni
         return render_template('result.html', response=prompt, image_prompt=prompt)
     else:
         return jsonify({"error": "Prompt is required"}), 400
+
 
 @app.route('/generate_text', methods=['POST'])
 def generate_text():
@@ -326,7 +337,9 @@ def generate_text():
         data = {"prompt": prompt, "response": generated_text}
         logging.debug(f"Data to insert into prompts: {data}")
         try:
-            supabase.table('prompts').insert(data).execute()
+            result = supabase.table('prompts').insert(data).execute()
+            generated_id = result.data[0]['id']  # Assume that the ID is returned in the response
+            session['generated_id'] = generated_id
         except Exception as e:
             logging.error(f"Error inserting data into prompts: {str(e)}")
             return jsonify({"error": str(e)}), 400
@@ -464,47 +477,93 @@ def select_track():
     return render_template('play.html', track_id=track_id, track_name=track_name, artist_name=artist_name,
                            preview_url=preview_url, video_duration=video_duration)
 
+
 @app.route('/final_video', methods=['POST'])
 def final_video():
     track_id = request.form.get('track_id')
     preview_url = request.form.get('preview_url')
     music_start_time = int(request.form.get('start_time'))
     music_end_time = int(request.form.get('end_time'))
+
     # Path to the existing video file
     video_path = session.get('video_path')
     if not os.path.exists(video_path):
         return "Fichier vidéo non trouvé.", 404
+
     # Get the duration of the existing video
     video_duration = get_video_duration(video_path)
+
     # Calculate the duration of the selected music segment
     music_segment_duration = music_end_time - music_start_time
+
     # Ensure the selected segment duration does not exceed the video duration
     if music_segment_duration > video_duration:
         return "La durée de la sélection de la musique dépasse la durée de la vidéo.", 400
+
     # Ensure the selected segment is valid
     if music_end_time <= music_start_time:
         return "Temps de début ou de fin invalide.", 400
+
     # Download the audio preview
     audio_path = download_audio_preview(preview_url)
     if not audio_path:
         return "Aperçu audio non trouvé.", 404
+
+    # Retrieve the generated text using the ID from the session
+    generated_id = session.get('generated_id')
+    if not generated_id:
+        return "ID du texte généré non trouvé dans la session.", 400
+
+    try:
+        response = supabase.table('prompts').select('response').eq('id', generated_id).execute()
+        if response.data:
+            generated_text = response.data[0]['response']
+        else:
+            return "Aucun texte généré trouvé.", 404
+    except Exception as e:
+        logging.error(f"Error fetching generated text from Supabase: {e}")
+        return "Erreur lors de la récupération du texte généré.", 500
+
+    # Use text_to_speech to convert the text to speech
+    voice_audio_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
+    try:
+        text_to_speech(generated_text, voice_audio_path, voice_id='Miguel')
+    except Exception as e:
+        logging.error(f"Error generating speech from text: {e}")
+        return "Erreur lors de la génération de la voix à partir du texte.", 500
+
     # Create a temporary file for the new video with audio
     output_video_path = video_path
     audio_clip = None
+    voice_clip = None
     try:
         # Load the existing video clip
         video_clip = VideoFileClip(video_path).subclip(0, music_segment_duration)
         # Add the audio file to the video
         audio_clip = AudioFileClip(audio_path).subclip(music_start_time, music_end_time)
-        video_clip = video_clip.set_audio(audio_clip)
+
+        # Add generated text as a caption or overlay to the video
+        txt_clip = TextClip(generated_text, fontsize=24, color='white')
+        txt_clip = txt_clip.set_position('bottom').set_duration(video_clip.duration)
+        video_clip = CompositeVideoClip([video_clip, txt_clip])
+
+        # Add the generated voice clip to the video
+        voice_clip = AudioFileClip(voice_audio_path)
+        final_audio = CompositeAudioClip([audio_clip.volumex(0.4), voice_clip.set_duration(video_clip.duration)])
+        video_clip = video_clip.set_audio(final_audio)
+
         # Write the new video file
         video_clip.write_videofile(output_video_path, codec="libx264", fps=24)
         session['new_video_path'] = output_video_path
     finally:
-        # Ensure the audio file is closed and deleted
+        # Ensure the audio files are closed and deleted
         if audio_clip:
             audio_clip.close()
+        if voice_clip:
+            voice_clip.close()
         os.remove(audio_path)
+        os.remove(voice_audio_path)
+
     # Save the new video to Supabase
     with open(output_video_path, 'rb') as video_file:
         video_blob = video_file.read()
@@ -520,6 +579,7 @@ def final_video():
     except Exception as e:
         logging.error(f"Error inserting video data into Supabase: {e}")
         video_url = None
+
     return redirect(url_for('show_video'))
 
 
