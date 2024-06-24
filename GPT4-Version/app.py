@@ -464,39 +464,67 @@ def select_track():
     return render_template('play.html', track_id=track_id, track_name=track_name, artist_name=artist_name,
                            preview_url=preview_url, video_duration=video_duration)
 
+
 @app.route('/final_video', methods=['POST'])
 def final_video():
     track_id = request.form.get('track_id')
     preview_url = request.form.get('preview_url')
     music_start_time = int(request.form.get('start_time'))
     music_end_time = int(request.form.get('end_time'))
+
     # Path to the existing video file
     video_path = session.get('video_path')
     if not os.path.exists(video_path):
         return "Fichier vidéo non trouvé.", 404
+
     # Get the duration of the existing video
     video_duration = get_video_duration(video_path)
+
     # Calculate the duration of the selected music segment
     music_segment_duration = music_end_time - music_start_time
+
     # Ensure the selected segment duration does not exceed the video duration
     if music_segment_duration > video_duration:
         return "La durée de la sélection de la musique dépasse la durée de la vidéo.", 400
+
     # Ensure the selected segment is valid
     if music_end_time <= music_start_time:
         return "Temps de début ou de fin invalide.", 400
+
     # Download the audio preview
     audio_path = download_audio_preview(preview_url)
     if not audio_path:
         return "Aperçu audio non trouvé.", 404
+
+    # Retrieve the generated text from Supabase
+    code = session.get('code')
+    response = supabase.table('prompts').select('response').eq('code', code).execute()
+    if not response.data:
+        return "Texte généré non trouvé.", 404
+
+    generated_text = response.data[0]['response']
+
+    # Generate the speech from the generated text
+    speech_audio_path = os.path.join(tempfile.gettempdir(), f"{uuid.uuid4()}.mp3")
+    text_to_speech(generated_text, speech_audio_path)
+
     # Create a temporary file for the new video with audio
     output_video_path = video_path
-    audio_clip = None
+
     try:
         # Load the existing video clip
-        video_clip = VideoFileClip(video_path).subclip(0, music_segment_duration)
+        video_clip = VideoFileClip(video_path).subclip(0, video_duration)
+
         # Add the audio file to the video
         audio_clip = AudioFileClip(audio_path).subclip(music_start_time, music_end_time)
-        video_clip = video_clip.set_audio(audio_clip)
+
+        # Add the generated speech audio to the video
+        speech_audio_clip = AudioFileClip(speech_audio_path).set_start(0).set_duration(video_duration)
+
+        # Combine the audio tracks
+        combined_audio = CompositeAudioClip([audio_clip, speech_audio_clip])
+        video_clip = video_clip.set_audio(combined_audio)
+
         # Write the new video file
         video_clip.write_videofile(output_video_path, codec="libx264", fps=24)
         session['new_video_path'] = output_video_path
@@ -505,12 +533,25 @@ def final_video():
         if audio_clip:
             audio_clip.close()
         os.remove(audio_path)
+        os.remove(speech_audio_path)
+
     # Save the new video to Supabase
     with open(output_video_path, 'rb') as video_file:
         video_blob = video_file.read()
+    video_base64 = base64.b64encode(video_blob).decode('utf-8')
+    video_data = {
+        "filename": os.path.basename(output_video_path),
+        "video_blob": video_base64
+    }
+
+    try:
+        supabase.table('videos').insert(video_data).execute()
+        video_url = f"data:video/mp4;base64,{video_base64}"
+    except Exception as e:
+        logging.error(f"Error inserting video data into Supabase: {e}")
+        video_url = None
 
     return redirect(url_for('show_video'))
-
 
 
 @app.route('/show_video')
