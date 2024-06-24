@@ -533,19 +533,15 @@ def final_video():
         return "Erreur lors de la génération de la voix à partir du texte.", 500
 
     # Create a temporary file for the new video with audio
-    output_video_path = video_path
+    output_video_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4").name
     audio_clip = None
     voice_clip = None
     try:
         # Load the existing video clip
-        video_clip = VideoFileClip(video_path).subclip(0, music_segment_duration)
+        video_clip = VideoFileClip(video_path)
+
         # Add the audio file to the video
         audio_clip = AudioFileClip(audio_path).subclip(music_start_time, music_end_time)
-
-        # Add generated text as a caption or overlay to the video
-        txt_clip = TextClip(generated_text, fontsize=24, color='white')
-        txt_clip = txt_clip.set_position('bottom').set_duration(video_clip.duration)
-        video_clip = CompositeVideoClip([video_clip, txt_clip])
 
         # Add the generated voice clip to the video
         voice_clip = AudioFileClip(voice_audio_path)
@@ -581,6 +577,7 @@ def final_video():
         video_url = None
 
     return redirect(url_for('show_video'))
+
 
 
 
