@@ -4,56 +4,59 @@
     <title>Images Générées</title>
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='image_result.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
     <script>
         async function checkJobStatus(jobId) {
             try {
                 let response = await fetch(`/results/${jobId}`);
                 if (response.status === 202) {
-                    // Still processing, retry after a delay
                     setTimeout(() => checkJobStatus(jobId), 2000); // Retry every 2 seconds
                 } else {
-                    // Job finished, display results
                     let data = await response.json();
-                    displayImages(data.image_data);
+                    displayImages(data.image_urls);
                 }
+
+
+
+
+
+
+
+        Expand All
+
+    @@ -22,40 +21,41 @@
+
             } catch (error) {
                 console.error('Error fetching job status:', error);
             }
         }
 
-        function displayImages(imageData) {
-            const container = document.querySelector('.image-container');
-            container.innerHTML = ''; // Clear any existing content
-            imageData.forEach(data => {
-                const card = document.createElement('div');
-                card.className = 'card-wrap';
-
-                const cardContent = `
-                    <div class="card" style="background-image: url('${data.image_url}')">
-                        <div class="card-info">
-                            <h1 slot="header">${data.prompt_text}</h1>
-                        </div>
-                    </div>
-                `;
-                card.innerHTML = cardContent;
-                container.appendChild(card);
+        function displayImages(imageUrls) {
+            const app = new Vue({
+                el: '#app',
+                data: {
+                    images: imageUrls
+                }
             });
         }
 
         document.addEventListener('DOMContentLoaded', (event) => {
-            const jobId = "{{ job_id }}"; // Pass the job ID from the server
+            const jobId = "{{ job_id }}";
             checkJobStatus(jobId);
         });
     </script>
 </head>
 <body>
-    <h1 class="title">Images Générées</h1>
-    <div id="app" class="container">
-        <div class="image-container">
-            <!-- Images will be dynamically inserted here -->
-        </div>
+    <h1 class="title">Hover over the cards</h1>
 
-        <!-- Formulaire pour créer la vidéo -->
+    <div id="app" class="container">
+        <card v-for="(image, index) in images" :key="index" :data-image="image">
+            <h1 slot="header">Image {{ index + 1 }}</h1>
+            <p slot="content">Generated Image {{ index + 1 }}</p>
+        </card>
+    </div>
+
+    <div class="container">
         <form action="/create_video" method="get" class="video-form">
             {% for prompt in prompts %}
                 <input type="hidden" name="prompts" value="{{ prompt }}">
@@ -61,8 +64,9 @@
             <input type="hidden" name="code" value="{{ code }}">
             <button type="submit" class="btn">Créer Vidéo</button>
         </form>
-
         <a href="/" class="back-link">Retour</a>
     </div>
+
+    <script src="{{ url_for('static', filename='image_result.js') }}"></script>
 </body>
 </html>
