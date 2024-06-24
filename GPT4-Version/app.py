@@ -58,6 +58,8 @@ def search_music_by_mood(mood):
 def get_video_duration(video_path):
     with VideoFileClip(video_path) as video:
         return int(video.duration)
+
+
 def download_audio_preview(url):
     response = requests.get(url)
     if response.status_code == 200:
@@ -198,6 +200,8 @@ def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
         current_height += text_height
     logging.debug("Exiting text_to_image function")
     return np.array(image)
+
+
 def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Miguel'):
     audio_clips = []
     video_clips = []
@@ -229,6 +233,8 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
     final_video.write_videofile(output_video, fps=fps, codec='libx264')
     for audio_file in os.listdir(audio_dir):
         os.remove(os.path.join(audio_dir, audio_file))
+
+
 @app.route('/create_video', methods=['GET'])
 def create_video():
     prompts = request.args.getlist('prompts')
@@ -273,7 +279,12 @@ def create_video():
         logging.error(f"Error inserting video data into Supabase: {e}")
         video_url = None
     return render_template('video_result.html', video_url=video_url)
-@app.route('/', methods=['GET', 'POST'])
+
+@app.route('/', methods=['GET'])
+def index():
+    return render_template('index.html')
+
+@app.route('/generate_text', methods=['POST'])
 def generate_text():
     if request.method == 'POST':
         prompt = request.form['prompt']
@@ -310,6 +321,8 @@ def generate_text():
         return render_template('result.html', response=generated_text, image_prompt=generated_text)
     else:
         return render_template('index.html')
+
+
 @app.route('/history', methods=['GET'])
 def get_history():
     try:
@@ -318,6 +331,8 @@ def get_history():
     except Exception as e:
         logging.error(f"Error fetching data from prompts: {str(e)}")
         return jsonify({"error": str(e)}), 400
+
+
 @app.route('/generate_images', methods=['POST'])
 def generate_images_route():
     text = request.form['text']
@@ -329,6 +344,8 @@ def generate_images_route():
         func=generate_images_from_prompts, args=(prompts, code), result_ttl=5000
     )
     return render_template('image_result.html', job_id=job.get_id(), prompts=prompts, code=code)
+
+
 @app.route('/results/<job_id>', methods=['GET'])
 def get_results(job_id):
     job = Job.fetch(job_id, connection=conn)
@@ -344,6 +361,8 @@ def get_results(job_id):
         return jsonify({"image_urls": image_urls}), 200
     else:
         return "Still processing", 202
+
+
 @app.route('/api/generate_text', methods=['POST'])
 def api_generate_text():
     data = request.get_json()
@@ -366,6 +385,8 @@ def api_generate_text():
     else:
         generated_text = 'No response'
     return jsonify({"response": generated_text}), 200
+
+
 @app.route('/api/generate_images', methods=['POST'])
 def api_generate_images():
     data = request.get_json()
@@ -377,6 +398,8 @@ def api_generate_images():
         func=generate_images_from_prompts, args=(prompts, code), result_ttl=5000
     )
     return jsonify({'job_id': job.get_id()}), 202
+
+
 @app.route('/music_choice', methods=['GET', 'POST'])
 def music_choice():
     mood_tracks = []
@@ -410,12 +433,16 @@ def music_choice():
         app.logger.exception(f"Error in /music_choice route: {e}")
         error = "Une erreur est survenue. Veuillez réessayer plus tard."
     return render_template('music_choice.html', mood=mood, mood_tracks=mood_tracks, search_tracks=search_tracks, error=error)
+
+
+
 @app.route('/select_track', methods=['POST'])
 def select_track():
     track_id = request.form.get('track_id')
     track_name = request.form.get('track_name')
     artist_name = request.form.get('artist_name')
     preview_url = request.form.get('preview_url')
+
     # Path to the existing video file
     video_path = session.get('video_path')
     if not os.path.exists(video_path):
@@ -424,12 +451,14 @@ def select_track():
     video_duration = get_video_duration(video_path)
     return render_template('play.html', track_id=track_id, track_name=track_name, artist_name=artist_name,
                            preview_url=preview_url, video_duration=video_duration)
+
 @app.route('/final_video', methods=['POST'])
 def final_video():
     track_id = request.form.get('track_id')
     preview_url = request.form.get('preview_url')
     music_start_time = int(request.form.get('start_time'))
     music_end_time = int(request.form.get('end_time'))
+
     # Path to the existing video file
     video_path = session.get('video_path')
     if not os.path.exists(video_path):
@@ -468,19 +497,11 @@ def final_video():
     # Save the new video to Supabase
     with open(output_video_path, 'rb') as video_file:
         video_blob = video_file.read()
-    video_base64 = base64.b64encode(video_blob).decode('utf-8')
-    # video_data = {
-    #     "filename": os.path.basename(output_video_path),
-    #     "video_blob": video_base64
-    # }
-    #
-    # try:
-    #     supabase.table('videos').insert(video_data).execute()
-    #     video_url = f"data:video/mp4;base64,{video_base64}"
-    # except Exception as e:
-    #     logging.error(f"Error inserting video data into Supabase: {e}")
-    #     video_url = None
+
     return redirect(url_for('show_video'))
+
+
+
 @app.route('/show_video')
 def show_video():
     video_path = session.get('new_video_path')
