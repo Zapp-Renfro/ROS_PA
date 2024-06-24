@@ -342,7 +342,7 @@ def create_video():
     return render_template('video_result.html', video_url=video_url)
 
 
-@app.route('/', methods=['GET', 'POST'])
+@app.route('/generate_text', methods=['POST'])
 def generate_text():
     if request.method == 'POST':
         prompt = request.form['prompt']
@@ -387,6 +387,19 @@ def generate_text():
         return render_template('result.html', response=generated_text, image_prompt=generated_text)
     else:
         return render_template('index.html')
+
+@app.route('/use_text', methods=['POST'])
+def use_text():
+    prompt = request.form.get('prompt2')
+    if prompt:
+        # Directement utiliser le texte fourni
+        return render_template('result.html', response=prompt, image_prompt=prompt)
+    else:
+        return jsonify({"error": "Prompt is required"}), 400
+
+@app.route('/', methods=['GET'])
+def index():
+    return render_template('index.html')
 
 
 @app.route('/history', methods=['GET'])

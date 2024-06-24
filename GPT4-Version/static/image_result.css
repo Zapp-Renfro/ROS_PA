@@ -7,6 +7,7 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
+    flex-direction: column;
     height: 100vh;
     text-align: center;
 }
@@ -21,10 +22,12 @@ body {
     width: 100%;
 }
 
-h1 {
+h1.title {
     color: #007bff;
     margin-bottom: 20px;
     font-size: 2em;
+    width: 100%;
+    text-align: center;
 }
 
 .image-container {
@@ -35,45 +38,62 @@ h1 {
     margin-bottom: 20px;
 }
 
-.image-container img {
-    max-width: 200px;
-    height: auto;
-    border-radius: 8px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    transition: transform 0.3s ease;
-}
-
-.image-container img:hover {
-    transform: scale(1.05);
-}
-
-.video-form {
-    margin-bottom: 20px;
-}
-
-.btn {
-    background-color: #007bff;
-    color: white;
-    padding: 10px 20px;
-    border: none;
-    border-radius: 5px;
+/* Styles for the image container and cards */
+.card-wrap {
+    margin: 10px;
+    perspective: 800px;
+    transform-style: preserve-3d;
     cursor: pointer;
-    transition: background-color 0.3s ease;
 }
 
-.btn:hover {
-    background-color: #0056b3;
+.card {
+    position: relative;
+    width: 240px;
+    height: 320px;
+    background-size: cover;
+    background-position: center;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow:
+        rgba(0, 0, 0, 0.66) 0 30px 60px 0,
+        inset #333 0 0 0 5px,
+        inset rgba(255, 255, 255, 0.5) 0 0 0 6px;
+    transition: transform 1s cubic-bezier(0.445, 0.05, 0.55, 0.95), box-shadow 0.6s cubic-bezier(0.23, 1, 0.32, 1);
 }
 
-.back-link {
-    display: inline-block;
-    margin-top: 10px;
-    color: #007bff;
-    text-decoration: none;
-    transition: color 0.3s ease;
+.card:hover {
+    transform: rotateY(15deg) rotateX(-15deg);
+    box-shadow:
+        rgba(255, 255, 255, 0.2) 0 0 40px 5px,
+        rgba(255, 255, 255, 1) 0 0 0 1px,
+        rgba(0, 0, 0, 0.66) 0 30px 60px 0,
+        inset #333 0 0 0 5px,
+        inset #fff 0 0 0 6px;
 }
 
-.back-link:hover {
-    color: #0056b3;
+.card-info {
+    position: absolute;
+    bottom: 0;
+    padding: 10px;
+    color: #fff;
+    background: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.6) 100%);
+    width: 100%;
+    box-sizing: border-box; /* Ensure padding is included in width */
+    transform: translateY(100%);
+    transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
 }
 
+.card:hover .card-info {
+    transform: translateY(0);
+}
+
+.card-info h1 {
+    font-size: 0.8em; /* Smaller font size *m/
+    margin: 0;
+    font-style: italic; /* Italic text */
+    font-weight: normal; /* Non-bold text */
+    word-wrap: break-word; /* Ensure text wraps to next line */
+    line-height: 1.2em; /* Adjust line height for better readability */
+    overflow-wrap: break-word; /* Break long words */
+    hyphens: auto; /* Enable hyphenation */
+}

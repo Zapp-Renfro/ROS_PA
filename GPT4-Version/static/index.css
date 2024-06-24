@@ -1,13 +1,53 @@
+body,h1,h2,h3,h4,h5,h6 {font-family: "Lato", sans-serif;}
+body, html {
+  height: 100%;
+  color: #777;
+  line-height: 1.8;
+}
+
+.bgimg-1 {
+  background-attachment: fixed;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-image: url('../static/images/fond_index.png');
+  min-height: 100%;
+}
+
+.bgimg-2 {
+  background-attachment: fixed;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-image: url('../static/images/painter.png');
+  min-height: 400px;
+}
+
+.bgimg-3 {
+  background-attachment: fixed;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-image: url('../static/images/paysageRose.png');
+  min-height: 400px;
+}
+
+.w3-wide {letter-spacing: 10px;}
+.w3-hover-opacity {cursor: pointer;}
+
+@media only screen and (max-device-width: 1600px) {
+  .bgimg-1, .bgimg-2, .bgimg-3 {
+    background-attachment: scroll;
+    min-height: 400px;
+  }
+}
+
 body {
-    font-family: 'Roboto', sans-serif;
+    font-family: 'Lato', sans-serif;
     margin: 0;
     padding: 0;
     background-color: #f9f9f9;
     color: #333;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
 }
 
 .container {
@@ -15,10 +55,16 @@ body {
     border-radius: 8px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     padding: 40px;
-    margin: 20px;
+    margin: 20px auto 310px auto;
     text-align: center;
     max-width: 400px;
     width: 100%;
+}
+
+.boxes-container {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
 }
 
 h1 {
@@ -67,4 +113,14 @@ label {
     h1 {
         font-size: 1.5em;
     }
+
+    .boxes-container {
+        flex-direction: column;
+        align-items: center;
+    }
+}
+
+h3.w3-center {
+    font-size: 2.5em; /* Augmentez cette valeur pour une taille plus grande */
+    margin-bottom: 40px; /* Augmentez cette valeur pour plus de marge */
 }
