@@ -88,11 +88,11 @@ h1.title {
 }
 
 .card-info h1 {
-    font-size: 0.8em; /* Smaller font size *m3/
+    font-size: 0.8em; /* Smaller font size */
     margin: 0;
     font-style: italic; /* Italic text */
     font-weight: normal; /* Non-bold text */
-    word-wrap: break-word; /* Ensure text wraps to next line */
+    word-wrap: break-word; /* Ensure text wraps to next l1ine */
     line-height: 1.2em; /* Adjust line height for better readability */
     overflow-wrap: break-word; /* Break long words */
     hyphens: auto; /* Enable hyphenation */

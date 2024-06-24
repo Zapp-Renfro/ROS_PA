@@ -348,6 +348,51 @@ def generate_text():
         return render_template('index.html')
 
 
+@app.route('/regenerate_image', methods=['POST'])
+def regenerate_image():
+    data = request.get_json()
+    prompt = data.get('prompt')
+    if not prompt:
+        return jsonify({"error": "Prompt is required"}), 400
+
+    # Utiliser le prompt pour générer une nouvelle image
+    headers = random.choice(HEADERS_LIST)
+    response = requests.post(API_URL_IMAGE_V3, headers=headers, json={"inputs": prompt})
+
+    if response.status_code != 200:
+        return jsonify({"error": "Failed to generate image"}), response.status_code
+
+    image_data = response.content
+    try:
+        image = Image.open(BytesIO(image_data))
+    except Exception as e:
+        logging.error(f"Error opening image: {e}")
+        return jsonify({"error": "Failed to open image"}), 500
+
+    # Convertir l'image en URL de base64
+    with BytesIO() as img_byte_arr:
+        image.save(img_byte_arr, format='PNG')
+        img_byte_arr.seek(0)
+        image_base64 = base64.b64encode(img_byte_arr.read()).decode('utf-8')
+
+    image_url = f"data:image/png;base64,{image_base64}"
+
+    # Mettre à jour l'image dans Supabase
+    try:
+        supabase.table('images').delete().eq('prompt_text', prompt).execute()
+        data = {
+            "prompt_text": prompt,
+            "image_blob": image_base64,
+            "filename": f"{uuid.uuid4()}.png"
+        }
+        supabase.table('images').insert(data).execute()
+    except Exception as e:
+        logging.error(f"Error updating image in Supabase: {e}")
+        return jsonify({"error": "Failed to update image in Supabase"}), 500
+
+    return jsonify({"image_url": image_url}), 200
+
+
 @app.route('/history', methods=['GET'])
 def get_history():
     try:
