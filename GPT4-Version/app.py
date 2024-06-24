@@ -265,6 +265,7 @@ def create_video():
         os.makedirs('static/videos')
     create_video_with_text(images_data, output_video, prompts, audio_path='static/music/relaxing-piano-201831.mp3',
                            voice_id='Miguel')
+    session['video_path'] = output_video
     with open(output_video, 'rb') as video_file:
         video_blob = video_file.read()
     video_base64 = base64.b64encode(video_blob).decode('utf-8')
