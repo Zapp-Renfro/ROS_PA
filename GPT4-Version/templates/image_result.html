@@ -35,7 +35,6 @@
                         </div>
                     </div>
                 `;
-
                 card.innerHTML = cardContent;
                 container.appendChild(card);
             });
@@ -46,7 +45,6 @@
             checkJobStatus(jobId);
         });
     </script>
-
 </head>
 <body>
     <h1 class="title">Images Générées</h1>
@@ -54,6 +52,7 @@
         <div class="image-container">
             <!-- Images will be dynamically inserted here -->
         </div>
+
         <!-- Formulaire pour créer la vidéo -->
         <form action="/create_video" method="get" class="video-form">
             {% for prompt in prompts %}
@@ -62,6 +61,7 @@
             <input type="hidden" name="code" value="{{ code }}">
             <button type="submit" class="btn">Créer Vidéo</button>
         </form>
+
         <a href="/" class="back-link">Retour</a>
     </div>
 </body>
