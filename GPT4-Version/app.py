@@ -20,27 +20,40 @@ import logging
 import time
 from requests.exceptions import HTTPError
 import tempfile
+
+
 JAMENDO_CLIENT_ID = "1fe12850"
+
+
 HUGGINGFACE_API_TOKEN = "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"  # Remplacez
 API_URL_IMAGE = "https://api-inference.huggingface.co/models/dataautogpt3/ProteusV0.2"
 API_URL_IMAGE_V2 = "https://api-inference.huggingface.co/models/alvdansen/BandW-Manga"
 API_URL_IMAGE_V3 = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0"
+
+
 # Initialisation de l'application Flask
+
 app = Flask(__name__)
 q = Queue(connection=conn)
 app.secret_key = 'votre_cle_secrete'
+
 # Configuration de logging
 logging.basicConfig(level=logging.DEBUG)
+
+
 # Initialisation de Supabase
 SUPABASE_URL = 'https://lpfjfbvhhckrnzdfezgd.supabase.co'
 SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxwZmpmYnZoaGNrcm56ZGZlemdkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTY2NTYyMzEsImV4cCI6MjAzMjIzMjIzMX0.xXvve7bQ0lSz38CT9s9iQF3VlPo-vKbCy5Vw3Zhl84c'
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 HEADERS_LIST = [{"Authorization": f"Bearer {HUGGINGFACE_API_TOKEN}"}]
+
 # Configuration AWS
 AWS_ACCESS_KEY_ID = 'AKIAVRUVT3YMY5C23CNL'
 AWS_SECRET_ACCESS_KEY = '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'
 AWS_REGION = 'eu-west-1'
 mood = "bad"
+
+
 def search_music_by_mood(mood):
     url = "https://api.jamendo.com/v3.0/tracks"
     params = {
@@ -55,6 +68,8 @@ def search_music_by_mood(mood):
         print(response.text)
         return None
     return response.json()
+
+
 def get_video_duration(video_path):
     with VideoFileClip(video_path) as video:
         return int(video.duration)
@@ -68,12 +83,15 @@ def download_audio_preview(url):
         temp_file.close()
         return temp_file.name
     return None
+
+
 def upload_video_to_supabase(file_path, file_name):
     with open(file_path, 'rb') as file:
         res = supabase.storage().from_('videos').upload(file_name, file)
     return res
 
-def text_to_speech(text, output_filename, voice_id='Miguel'):
+
+def text_to_speech(text, output_filename, voice_id='Justin'):
     logging.debug(f"Using voice_id: {voice_id}")
     polly_client = boto3.Session(
         aws_access_key_id=AWS_ACCESS_KEY_ID,
@@ -217,7 +235,7 @@ def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
     return np.array(image)
 
 
-def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Miguel'):
+def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Justin'):
     audio_clips = []
     video_clips = []
     audio_dir = 'static/audio'
@@ -280,7 +298,7 @@ def create_video():
     if not os.path.exists('static/videos'):
         os.makedirs('static/videos')
     create_video_with_text(images_data, output_video, prompts, audio_path='static/music/relaxing-piano-201831.mp3',
-                           voice_id='Miguel')
+                           voice_id='Justin')
 
     session['video_path'] = output_video
     with open(output_video, 'rb') as video_file:
@@ -384,7 +402,6 @@ def generate_images_route():
         func=generate_images_from_prompts, args=(prompts, code), result_ttl=5000
     )
     return render_template('image_result.html', job_id=job.get_id(), prompts=prompts, code=code)
-
 
 
 
@@ -548,7 +565,7 @@ def final_video():
     # Use text_to_speech to convert the text to speech
     voice_audio_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
     try:
-        text_to_speech(generated_text, voice_audio_path, voice_id='Miguel')
+        text_to_speech(generated_text, voice_audio_path, voice_id='Justin')
     except Exception as e:
         logging.error(f"Error generating speech from text: {e}")
         return "Erreur lors de la génération de la voix à partir du texte.", 500
