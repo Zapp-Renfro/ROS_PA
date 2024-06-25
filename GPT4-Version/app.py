@@ -393,14 +393,18 @@ def get_results(job_id):
     job = Job.fetch(job_id, connection=conn)
     if job.is_finished:
         code = job.args[1]
-        response = supabase.table('images').select('image_blob').eq('code', code).execute()
-        image_urls = []
+        response = supabase.table('images').select('image_blob', 'prompt_text').eq('code', code).execute()
+        image_data = []
         if response.data:
             for img in response.data:
                 image_blob = img.get('image_blob')
+                prompt_text = img.get('prompt_text')
                 if image_blob:
-                    image_urls.append(f"data:image/png;base64,{image_blob}")
-        return jsonify({"image_urls": image_urls}), 200
+                    image_data.append({
+                        'image_url': f"data:image/png;base64,{image_blob}",
+                        'prompt_text': prompt_text
+                    })
+        return jsonify({"image_data": image_data}), 200
     else:
         return "Still processing", 202
 
