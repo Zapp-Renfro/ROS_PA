@@ -102,6 +102,7 @@ def generate_images_from_prompts(prompts, code):
     filenames = []
     max_retries = 5
     base_retry_delay = 5  # seconds
+
     for prompt in prompts:
         headers = random.choice(HEADERS_LIST)
         for attempt in range(max_retries):
@@ -110,6 +111,7 @@ def generate_images_from_prompts(prompts, code):
                 response = requests.post(API_URL_IMAGE_V3, headers=headers, json={"inputs": prompt})
                 logging.debug(f"Response status code: {response.status_code}")
                 response.raise_for_status()
+
                 if 'image' in response.headers['Content-Type']:
                     logging.debug("Response contains an image")
                     image_data = response.content
@@ -118,18 +120,20 @@ def generate_images_from_prompts(prompts, code):
                     except Exception as e:
                         logging.error(f"Error opening image: {e}")
                         continue
+
                     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
                     filename = f"image_{timestamp}.png"
                     filenames.append(filename)
                     logging.debug(f"Generated filename: {filename}")
+
                     # Convert image to binary data
                     with BytesIO() as img_byte_arr:
                         image.save(img_byte_arr, format='PNG')
                         img_byte_arr.seek(0)
                         image_blob = img_byte_arr.read()
+
                     # Stocker l'image dans Supabase
-                    data = {"prompt_text": prompt, "filename": filename,
-                            "image_blob": base64.b64encode(image_blob).decode('utf-8'), "code": code}
+                    data = {"prompt_text": prompt, "filename": filename, "image_blob": base64.b64encode(image_blob).decode('utf-8'), "code": code}
                     logging.debug(f"Data to insert into images: {data}")
                     try:
                         supabase.table('images').insert(data).execute()
@@ -151,6 +155,7 @@ def generate_images_from_prompts(prompts, code):
             except Exception as err:
                 logging.error(f"An error occurred: {err}")
                 break
+
     return filenames
 
 def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
