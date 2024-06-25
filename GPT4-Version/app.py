@@ -170,9 +170,11 @@ def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
     except IOError:
         font = ImageFont.load_default()
         logging.warning("Font not found, using default font")
+
     if max_width is None:
-        max_width = image.width - 40  # Ajouter une marge de 20 pixels de chaque côté
+        max_width = image.width - 40
     logging.debug(f"Max width for text: {max_width}")
+
     lines = []
     words = text.split()
     current_line = ""
@@ -187,15 +189,18 @@ def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
             current_line = word
     lines.append(current_line)
     logging.debug(f"Text split into lines: {lines}")
+
     total_text_height = sum(
         [draw.textbbox((0, 0), line, font=font)[3] - draw.textbbox((0, 0), line, font=font)[1] for line in lines])
     current_height = (image.height - total_text_height) / 2
+
     for line in lines:
         text_bbox = draw.textbbox((0, 0), line, font=font)
         text_width = text_bbox[2] - text_bbox[0]
         text_height = text_bbox[3] - text_bbox[1]
         text_position = ((image.width - text_width) / 2, current_height)
         logging.debug(f"Drawing text: {line} at position {text_position}")
+
         shadow_offset = 2
         draw.text((text_position[0] + shadow_offset, text_position[1] + shadow_offset), line, font=font,
                   fill=shadow_color)
@@ -205,7 +210,9 @@ def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
                 if x != 0 or y != 0:
                     draw.text((text_position[0] + x, text_position[1] + y), line, font=font, fill=outline_color)
         draw.text(text_position, line, font=font, fill=text_color)
+
         current_height += text_height
+
     logging.debug("Exiting text_to_image function")
     return np.array(image)
 
