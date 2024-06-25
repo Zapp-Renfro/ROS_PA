@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <title>Music App</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='music_choice.css') }}">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>Musique pour l'humeur: {{ mood }}</h1>
+            <h1>Proposition de musique</h1>
         </header>
 
         {% if error %}
@@ -16,24 +16,24 @@
         {% endif %}
 
         <section>
-            <h2>Top Tracks pour {{ mood }}</h2>
+            <h2>Top Tracks</h2>
             <ul class="track-list">
                 {% for track in mood_tracks %}
-                    <li>
+                    <li class="track-item">
                         <div class="track-info">
                             <span>{{ track['name'] }} par {{ track['artist_name'] }}</span>
                             <audio controls>
                                 <source src="{{ track['audio'] }}" type="audio/mpeg">
                                 Votre navigateur ne supporte pas l'élément audio.
                             </audio>
-                            <form method="POST" action="{{ url_for('select_track') }}" class="select-form">
-                                <input type="hidden" name="track_id" value="{{ track['id'] }}">
-                                <input type="hidden" name="track_name" value="{{ track['name'] }}">
-                                <input type="hidden" name="artist_name" value="{{ track['artist_name'] }}">
-                                <input type="hidden" name="preview_url" value="{{ track['audio'] }}">
-                                <button type="submit">Sélectionner</button>
-                            </form>
                         </div>
+                        <form method="POST" action="{{ url_for('select_track') }}" class="select-form">
+                            <input type="hidden" name="track_id" value="{{ track['id'] }}">
+                            <input type="hidden" name="track_name" value="{{ track['name'] }}">
+                            <input type="hidden" name="artist_name" value="{{ track['artist_name'] }}">
+                            <input type="hidden" name="preview_url" value="{{ track['audio'] }}">
+                            <button type="submit">Sélectionner</button>
+                        </form>
                     </li>
                 {% endfor %}
             </ul>
@@ -52,21 +52,21 @@
             <h2>Résultats de la recherche</h2>
             <ul class="track-list">
                 {% for track in search_tracks %}
-                    <li>
+                    <li class="track-item">
                         <div class="track-info">
                             <span>{{ track['name'] }} par {{ track['artist_name'] }}</span>
                             <audio controls>
                                 <source src="{{ track['audio'] }}" type="audio/mpeg">
                                 Votre navigateur ne supporte pas l'élément audio.
                             </audio>
-                            <form method="POST" action="{{ url_for('select_track') }}" class="select-form">
-                                <input type="hidden" name="track_id" value="{{ track['id'] }}">
-                                <input type="hidden" name="track_name" value="{{ track['name'] }}">
-                                <input type="hidden" name="artist_name" value="{{ track['artist_name'] }}">
-                                <input type="hidden" name="preview_url" value="{{ track['audio'] }}">
-                                <button type="submit">Sélectionner</button>
-                            </form>
                         </div>
+                        <form method="POST" action="{{ url_for('select_track') }}" class="select-form">
+                            <input type="hidden" name="track_id" value="{{ track['id'] }}">
+                            <input type="hidden" name="track_name" value="{{ track['name'] }}">
+                            <input type="hidden" name="artist_name" value="{{ track['artist_name'] }}">
+                            <input type="hidden" name="preview_url" value="{{ track['audio'] }}">
+                            <button type="submit">Sélectionner</button>
+                        </form>
                     </li>
                 {% endfor %}
             </ul>
