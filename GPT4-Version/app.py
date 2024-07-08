@@ -625,9 +625,7 @@ def show_video():
 
     return render_template('show_video.html', video_url=video_url)
 
-
-
-
 if __name__ == "__main__":
     app.run(debug=True)
+
 
