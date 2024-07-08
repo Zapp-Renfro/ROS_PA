@@ -515,7 +515,6 @@ def select_track():
     return render_template('play.html', track_id=track_id, track_name=track_name, artist_name=artist_name,
                            preview_url=preview_url, video_duration=video_duration)
 
-
 @app.route('/final_video', methods=['POST'])
 def final_video():
     track_id = request.form.get('track_id')
@@ -623,7 +622,7 @@ def show_video():
         logging.error(f"Error fetching video data from Supabase: {e}")
         return "Erreur lors de la récupération des données vidéo.", 500
 
-    return render_template('show_video.html', video_url=video_url)
+    return render_template('show_video.html', video_path=video_url)
 
 if __name__ == "__main__":
     app.run(debug=True)
