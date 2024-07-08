@@ -564,9 +564,9 @@ def final_video():
     output_video_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4").name
     audio_clip = None
     voice_clip = None
+    video_clip = None
     try:
         video_clip = VideoFileClip(video_path)
-
         audio_clip = AudioFileClip(audio_path).subclip(music_start_time, music_end_time)
         voice_clip = AudioFileClip(voice_audio_path)
 
@@ -575,9 +575,10 @@ def final_video():
 
         final_audio = CompositeAudioClip([audio_clip.volumex(0.4), voice_clip.set_duration(video_clip.duration)])
         video_clip = video_clip.set_audio(final_audio)
-
         video_clip.write_videofile(output_video_path, codec="libx264", fps=24)
     finally:
+        if video_clip:
+            video_clip.close()
         if audio_clip:
             audio_clip.close()
         if voice_clip:
@@ -585,7 +586,6 @@ def final_video():
         os.remove(audio_path)
         os.remove(voice_audio_path)
 
-    # Save the new video to Supabase
     with open(output_video_path, 'rb') as video_file:
         video_blob = video_file.read()
     video_base64 = base64.b64encode(video_blob).decode('utf-8')
@@ -596,24 +596,35 @@ def final_video():
 
     try:
         response = supabase.table('videos').insert(video_data).execute()
-        video_url = f"data:video/mp4;base64,{video_base64}"
-        session['new_video_url'] = video_url  # Update session with video URL
+        video_id = response.data[0]['id']  # Assume the ID is returned
+        session['new_video_id'] = video_id  # Store the ID in the session instead of the entire video URL
     except Exception as e:
         logging.error(f"Error inserting video data into Supabase: {e}")
         return "Erreur lors de l'insertion des données vidéo dans Supabase.", 500
 
-    os.remove(output_video_path)  # Clean up the temporary file
+    os.remove(output_video_path)
 
     return redirect(url_for('show_video'))
 
-
-
 @app.route('/show_video')
 def show_video():
-    video_path = session.get('new_video_path')
-    if not video_path or not os.path.exists(video_path):
+    video_id = session.get('new_video_id')
+    if not video_id:
         return "Vidéo non trouvée.", 404
-    return render_template('show_video.html', video_path=video_path)
+
+    try:
+        response = supabase.table('videos').select('video_blob').eq('id', video_id).execute()
+        if response.data:
+            video_blob = response.data[0]['video_blob']
+            video_url = f"data:video/mp4;base64,{video_blob}"
+        else:
+            return "Vidéo non trouvée.", 404
+    except Exception as e:
+        logging.error(f"Error fetching video data from Supabase: {e}")
+        return "Erreur lors de la récupération des données vidéo.", 500
+
+    return render_template('show_video.html', video_url=video_url)
+
 
 
 
