@@ -560,7 +560,7 @@ def final_video():
             return "Aucun texte généré trouvé.", 404
     except Exception as e:
         logging.error(f"Error fetching generated text from Supabase: {e}")
-        return "Erreur lors de la récupération du texte généré.", 500
+        return "Erreur lorss de la récupération du texte généré.", 500
 
     # Use text_to_speech to convert the text to speech
     voice_audio_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
@@ -626,3 +626,4 @@ def show_video():
     return render_template('show_video.html', video_path=video_path)
 if __name__ == "__main__":
     app.run(debug=True)
+
