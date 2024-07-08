@@ -523,31 +523,23 @@ def final_video():
     music_start_time = int(request.form.get('start_time'))
     music_end_time = int(request.form.get('end_time'))
 
-    # Path to the existing video file
     video_path = session.get('video_path')
     if not os.path.exists(video_path):
         return "Fichier vidéo non trouvé.", 404
 
-    # Get the duration of the existing video
     video_duration = get_video_duration(video_path)
-
-    # Calculate the duration of the selected music segment
     music_segment_duration = music_end_time - music_start_time
 
-    # Ensure the selected segment duration does not exceed the video duration
     if music_segment_duration > video_duration:
         return "La durée de la sélection de la musique dépasse la durée de la vidéo.", 400
 
-    # Ensure the selected segment is valid
     if music_end_time <= music_start_time:
         return "Temps de début ou de fin invalide.", 400
 
-    # Download the audio preview
     audio_path = download_audio_preview(preview_url)
     if not audio_path:
         return "Aperçu audio non trouvé.", 404
 
-    # Retrieve the generated text using the ID from the session
     generated_id = session.get('generated_id')
     if not generated_id:
         return "ID du texte généré non trouvé dans la session.", 400
@@ -560,9 +552,8 @@ def final_video():
             return "Aucun texte généré trouvé.", 404
     except Exception as e:
         logging.error(f"Error fetching generated text from Supabase: {e}")
-        return "Erreur lorss de la récupération du texte généré.", 500
+        return "Erreur lors de la récupération du texte généré.", 500
 
-    # Use text_to_speech to convert the text to speech
     voice_audio_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
     try:
         text_to_speech(generated_text, voice_audio_path, voice_id='Justin')
@@ -570,26 +561,23 @@ def final_video():
         logging.error(f"Error generating speech from text: {e}")
         return "Erreur lors de la génération de la voix à partir du texte.", 500
 
-    # Create a temporary file for the new video with audio
-    output_video_path = video_path
+    output_video_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4").name
     audio_clip = None
     voice_clip = None
     try:
-        # Load the existing video clip
         video_clip = VideoFileClip(video_path)
 
-        # Add the audio file to the video
         audio_clip = AudioFileClip(audio_path).subclip(music_start_time, music_end_time)
-
-        # Add the generated voice clip to the video
         voice_clip = AudioFileClip(voice_audio_path)
+
+        if video_clip.duration < voice_clip.duration:
+            voice_clip = voice_clip.subclip(0, video_clip.duration)
+
         final_audio = CompositeAudioClip([audio_clip.volumex(0.4), voice_clip.set_duration(video_clip.duration)])
         video_clip = video_clip.set_audio(final_audio)
-        # Write the new video file
+
         video_clip.write_videofile(output_video_path, codec="libx264", fps=24)
-        session['new_video_path'] = output_video_path
     finally:
-        # Ensure the audio files are closed and deleted
         if audio_clip:
             audio_clip.close()
         if voice_clip:
@@ -607,14 +595,16 @@ def final_video():
     }
 
     try:
-        supabase.table('videos').insert(video_data).execute()
+        response = supabase.table('videos').insert(video_data).execute()
         video_url = f"data:video/mp4;base64,{video_base64}"
+        session['new_video_url'] = video_url  # Update session with video URL
     except Exception as e:
         logging.error(f"Error inserting video data into Supabase: {e}")
-        video_url = None
+        return "Erreur lors de l'insertion des données vidéo dans Supabase.", 500
+
+    os.remove(output_video_path)  # Clean up the temporary file
 
     return redirect(url_for('show_video'))
-
 
 
 
@@ -624,6 +614,9 @@ def show_video():
     if not video_path or not os.path.exists(video_path):
         return "Vidéo non trouvée.", 404
     return render_template('show_video.html', video_path=video_path)
+
+
+
 if __name__ == "__main__":
     app.run(debug=True)
 
