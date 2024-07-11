@@ -343,9 +343,9 @@ def use_text():
 
 @app.route('/generate_text', methods=['POST'])
 def generate_text():
-    # if 'user_email' not in session:
-    #     flash("Veuillez vous connecter pour utiliser cette fonctionnalité.", "error")
-    #     return redirect(url_for('login'))
+    if 'user_email' not in session:
+        flash("Veuillez vous connecter pour utiliser cette fonctionnalité.", "error")
+        return redirect(url_for('login'))
 
     prompt_start = request.form['prompt_start']
     prompt = request.form['prompt']
@@ -369,74 +369,62 @@ def generate_text():
         }
     }
 
-    # Générer plusieurs réponses
-    num_responses = 3  # Nombre de réponses à générer
-    responses = []
+    response = requests.post(API_URL_TEXT, headers=headers, json=data)
 
-    for _ in range(num_responses):
-        response = requests.post(API_URL_TEXT, headers=headers, json=data)
+    if response.status_code != 200:
+        return jsonify({"error": "Failed to generate response from model"}), response.status_code
 
-        if response.status_code != 200:
-            return jsonify({"error": "Failed to generate response from model"}), response.status_code
+    response_json = response.json()
 
-        response_json = response.json()
+    if isinstance(response_json, list) and len(response_json) > 0 and 'generated_text' in response_json[0]:
+        generated_text = response_json[0]['generated_text']
+    else:
+        generated_text = 'No response'
 
-        if isinstance(response_json, list) and len(response_json) > 0 and 'generated_text' in response_json[0]:
-            generated_text = response_json[0]['generated_text']
-        else:
-            generated_text = 'No response'
+    # Fonction pour nettoyer et ajuster le texte généré
+    def clean_generated_text(text):
+        # Supprimer la partie du prompt initial si elle est répétée dans le texte généré
+        if text.startswith(full_prompt):
+            text = text[len(full_prompt):].strip()
 
-        # Fonction pour nettoyer et ajuster le texte généré
-        def clean_generated_text(text):
-            # Supprimer la partie du prompt initial si elle est répétée dans le texte généré
-            if text.startswith(full_prompt):
-                text = text[len(full_prompt):].strip()
+        # Assurez-vous que le texte a une longueur appropriée
+        if len(text) < min_length:
+            text += ' ...'  # Ajouter des points de suspension si le texte est trop court
 
-            # Assurez-vous que le texte a une longueur appropriée
-            if len(text) < min_length:
-                text += ' ...'  # Ajouter des points de suspension si le texte est trop court
+        # Assurez-vous que le texte se termine par un point
+        if not text.endswith('.'):
+            last_sentence_end = text.rfind('.')
+            if last_sentence_end != -1:
+                text = text[:last_sentence_end + 1]
+            else:
+                text = text.rstrip('!?,') + '.'
 
-            # Assurez-vous que le texte se termine par un point
-            if not text.endswith('.'):
-                last_sentence_end = text.rfind('.')
-                if last_sentence_end != -1:
-                    text = text[:last_sentence_end + 1]
-                else:
-                    text = text.rstrip('!?,') + '.'
+        return text
 
-            return text
+    cleaned_text = clean_generated_text(generated_text)
 
-        cleaned_text = clean_generated_text(generated_text)
+    # Limiter le texte à la longueur maximale spécifiée
+    if len(cleaned_text) > max_length:
+        cleaned_text = cleaned_text[:max_length]
+        # S'assurer que le texte tronqué se termine par un point
+        if not cleaned_text.endswith('.'):
+            last_sentence_end = cleaned_text.rfind('.')
+            if last_sentence_end != -1:
+                cleaned_text = cleaned_text[:last_sentence_end + 1]
+            else:
+                cleaned_text = cleaned_text.rstrip('!?,') + '.'
 
-        # Limiter le texte à la longueur maximale spécifiée
-        if len(cleaned_text) > max_length:
-            cleaned_text = cleaned_text[:max_length]
-            # S'assurer que le texte tronqué se termine par un point
-            if not cleaned_text.endswith('.'):
-                last_sentence_end = cleaned_text.rfind('.')
-                if last_sentence_end != -1:
-                    cleaned_text = cleaned_text[:last_sentence_end + 1]
-                else:
-                    cleaned_text = cleaned_text.rstrip('!?,') + '.'
+    data = {"prompt": full_prompt, "response": cleaned_text}
 
-        responses.append(cleaned_text)
+    try:
+        result = supabase.table('prompts').insert(data).execute()
+        generated_id = result.data[0]['id']
+        session['generated_id'] = generated_id
+    except Exception as e:
+        logging.error(f"Error inserting data into prompts: {str(e)}")
+        return jsonify({"error": str(e)}), 400
 
-    # Stocker toutes les réponses générées dans la base de données
-    generated_ids = []
-    for response in responses:
-        data = {"prompt": full_prompt, "response": response}
-        try:
-            result = supabase.table('prompts').insert(data).execute()
-            generated_id = result.data[0]['id']
-            generated_ids.append(generated_id)
-        except Exception as e:
-            logging.error(f"Error inserting data into prompts: {str(e)}")
-            return jsonify({"error": str(e)}), 400
-
-    session['generated_ids'] = generated_ids
-
-    return render_template('result.html', responses=responses, image_prompts=responses)
-
+    return render_template('result.html', response=cleaned_text, image_prompt=cleaned_text)
 
 @app.route('/logout')
 def logout():
@@ -534,7 +522,6 @@ def get_results(job_id):
         return jsonify({"image_data": image_data}), 200
     else:
         return "Still processing", 202
-
 
 
 @app.route('/api/generate_text', methods=['POST'])
