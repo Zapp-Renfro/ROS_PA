@@ -108,6 +108,7 @@ def text_to_speech(text, output_filename, voice_id='Justin'):
     with open(output_filename, 'wb') as file:
         file.write(response['AudioStream'].read())
 
+
 def format_response(chat_history):
     formatted_text = ""
     for entry in chat_history:
