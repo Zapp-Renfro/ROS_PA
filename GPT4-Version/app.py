@@ -524,6 +524,7 @@ def get_results(job_id):
         return "Still processing", 202
 
 
+
 @app.route('/api/generate_text', methods=['POST'])
 def api_generate_text():
     data = request.get_json()
