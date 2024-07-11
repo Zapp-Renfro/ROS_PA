@@ -343,43 +343,88 @@ def use_text():
 
 @app.route('/generate_text', methods=['POST'])
 def generate_text():
-    if request.method == 'POST':
-        prompt = request.form['prompt']
-        prompt_size = len(prompt)
-        # Appel à l'API de Hugging Face avec le modèle gpt-neo-2.7B
-        API_URL_TEXT = "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1"
-        API_TOKEN = "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"  # Remplacez par votre jeton API Hugging Face
-        headers = {"Authorization": f"Bearer {API_TOKEN}"}
-        # Log the request for debugging purposes
-        logging.debug(f"Sending request to Hugging Face API with prompt: {prompt}")
-        response = requests.post(API_URL_TEXT, headers=headers, json={"inputs": prompt})
-        # Log the response status code and content for debugging purposes
-        logging.debug(f"Hugging Face API response status: {response.status_code}")
-        logging.debug(f"Hugging Face API response content: {response.content}")
-        if response.status_code != 200:
-            return jsonify({"error": "Failed to generate response from model"}), response.status_code
-        response_json = response.json()
-        logging.debug(f"Hugging Face API response JSON: {response_json}")
-        # Handling different possible response structures
-        if isinstance(response_json, list) and len(response_json) > 0 and 'generated_text' in response_json[0]:
-            generated_text = response_json[0]['generated_text'][prompt_size:] # coupe le prompt au début
-            sentence_end_index = generated_text.rfind('.')
-            generated_text = generated_text[:sentence_end_index + 1]
-        else:
-            generated_text = 'No response'
-        # Stocker dans Supabase
-        data = {"prompt": prompt, "response": generated_text}
-        logging.debug(f"Data to insert into prompts: {data}")
-        try:
-            result = supabase.table('prompts').insert(data).execute()
-            generated_id = result.data[0]['id']  # Assume that the ID is returned in the response
-            session['generated_id'] = generated_id
-        except Exception as e:
-            logging.error(f"Error inserting data into prompts: {str(e)}")
-            return jsonify({"error": str(e)}), 400
-        return render_template('result.html', response=generated_text, image_prompt=generated_text)
+    if 'user_email' not in session:
+        flash("Veuillez vous connecter pour utiliser cette fonctionnalité.", "error")
+        return redirect(url_for('login'))
+
+    prompt_start = request.form['prompt_start']
+    prompt = request.form['prompt']
+    full_prompt = f"{prompt_start} {prompt}"
+    max_length = 1000  # Maximum number of characters
+    min_length = 800  # Minimum number of characters
+
+    API_URL_TEXT = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct"
+    API_TOKEN = "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"
+    headers = {"Authorization": f"Bearer {API_TOKEN}"}
+
+    # Utiliser la fonction generate de Hugging Face pour définir les paramètres de génération
+    data = {
+        "inputs": full_prompt,
+        "parameters": {
+            "max_new_tokens": 1024,  # Ajusté pour une correspondance approximative avec le nombre de caractères
+            "do_sample": True,
+            "temperature": 0.7,
+            "top_p": 0.9,
+            "eos_token_id": None
+        }
+    }
+
+    response = requests.post(API_URL_TEXT, headers=headers, json=data)
+
+    if response.status_code != 200:
+        return jsonify({"error": "Failed to generate response from model"}), response.status_code
+
+    response_json = response.json()
+
+    if isinstance(response_json, list) and len(response_json) > 0 and 'generated_text' in response_json[0]:
+        generated_text = response_json[0]['generated_text']
     else:
-        return render_template('index.html')
+        generated_text = 'No response'
+
+    # Fonction pour nettoyer et ajuster le texte généré
+    def clean_generated_text(text):
+        # Supprimer la partie du prompt initial si elle est répétée dans le texte généré
+        if text.startswith(full_prompt):
+            text = text[len(full_prompt):].strip()
+
+        # Assurez-vous que le texte a une longueur appropriée
+        if len(text) < min_length:
+            text += ' ...'  # Ajouter des points de suspension si le texte est trop court
+
+        # Assurez-vous que le texte se termine par un point
+        if not text.endswith('.'):
+            last_sentence_end = text.rfind('.')
+            if last_sentence_end != -1:
+                text = text[:last_sentence_end + 1]
+            else:
+                text = text.rstrip('!?,') + '.'
+
+        return text
+
+    cleaned_text = clean_generated_text(generated_text)
+
+    # Limiter le texte à la longueur maximale spécifiée
+    if len(cleaned_text) > max_length:
+        cleaned_text = cleaned_text[:max_length]
+        # S'assurer que le texte tronqué se termine par un point
+        if not cleaned_text.endswith('.'):
+            last_sentence_end = cleaned_text.rfind('.')
+            if last_sentence_end != -1:
+                cleaned_text = cleaned_text[:last_sentence_end + 1]
+            else:
+                cleaned_text = cleaned_text.rstrip('!?,') + '.'
+
+    data = {"prompt": full_prompt, "response": cleaned_text}
+
+    try:
+        result = supabase.table('prompts').insert(data).execute()
+        generated_id = result.data[0]['id']
+        session['generated_id'] = generated_id
+    except Exception as e:
+        logging.error(f"Error inserting data into prompts: {str(e)}")
+        return jsonify({"error": str(e)}), 400
+
+    return render_template('result.html', response=cleaned_text, image_prompt=cleaned_text)
 
 @app.route('/logout')
 def logout():
