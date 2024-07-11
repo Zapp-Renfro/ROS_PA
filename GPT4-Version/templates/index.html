@@ -62,7 +62,7 @@
       <form action="/generate_text" method="post">
           <label for="prompt">Prompt:</label>
           <input type="text" id="prompt" name="prompt" required>
-          <select id="model_api" name="model">
+          <select id="model_api" name="model_api" required>
             <option value="https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1" selected>Mistral 8x7B Instruct v0.1</option>
             <option value="https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3">Mistral 7B Instruct v0.3</option>
             <option value="https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct">Meta Llama-3-8B Instruct</option>

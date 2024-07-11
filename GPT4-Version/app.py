@@ -345,9 +345,12 @@ def use_text():
 def generate_text():
     if request.method == 'POST':
         prompt = request.form['prompt']
+        model_api = request.form['model_api']
+        default = "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1"
         prompt_size = len(prompt)
         # Appel à l'API de Hugging Face avec le modèle gpt-neo-2.7B
-        API_URL_TEXT = "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1"
+        API_URL_TEXT = model_api if model_api else default
+        logging.debug(f"--------------Sending request to : {API_URL_TEXT}-----------------")
         API_TOKEN = "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"  # Remplacez par votre jeton API Hugging Face
         headers = {"Authorization": f"Bearer {API_TOKEN}"}
         # Log the request for debugging purposes
@@ -485,12 +488,11 @@ def api_generate_text():
     prompt = data.get('prompt')
     model_api = data.get('model_api')
     default = "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1"
-    # mistralai/Mistral-7B-Instruct-v0.3
-    # microsoft/Phi-3-mini-128k-instruct
-    # https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct
+
     if not prompt:
         return jsonify({"error": "Prompt is required"}), 400
     API_URL = model_api if model_api else default
+    logging.debug(f"--------------Sending request to : {API_URL}-----------------")
     API_TOKEN = "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"
     headers = {"Authorization": f"Bearer {API_TOKEN}"}
     logging.debug(f"Sending request to Hugging Face API with prompt: {prompt}")
