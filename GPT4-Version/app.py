@@ -319,7 +319,8 @@ def create_video():
 
 @app.route('/', methods=['GET'])
 def index():
-    return render_template('index.html')
+    models = get_model()
+    return render_template('index.html', models=models)
 
 @app.route('/use_text', methods=['POST'])
 def use_text():
@@ -436,6 +437,13 @@ def login():
             flash("Une erreur est survenue lors de la connexion. Veuillez réessayer.", "error")
     return render_template('login.html')
 
+
+def get_model():
+    response = supabase.table('models').select('*').execute()
+    print(response.data)
+    if response.data:
+        return response.data
+    return []
 
 @app.route('/history', methods=['GET'])
 def get_history():
