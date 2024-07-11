@@ -439,7 +439,7 @@ def login():
 
 
 def get_model():
-    response = supabase.table('models').select('*').execute()
+    response = supabase.table('models').select('*').order("likes", desc=True).execute()
     print(response.data)
     if response.data:
         return response.data
