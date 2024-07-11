@@ -62,6 +62,12 @@
       <form action="/generate_text" method="post">
           <label for="prompt">Prompt:</label>
           <input type="text" id="prompt" name="prompt" required>
+          <select id="model_api" name="model">
+            <option value="https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1" selected>Mistral 8x7B Instruct v0.1</option>
+            <option value="https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3">Mistral 7B Instruct v0.3</option>
+            <option value="https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct">Meta Llama-3-8B Instruct</option>
+            <option value="https://api-inference.huggingface.co/models/microsoft/Phi-3-mini-128k-instruct"> Microsoft Phi-3 mini 128k instruct</option>
+          </select>
           <input type="submit" value="Générer">
       </form>
       {% else %}

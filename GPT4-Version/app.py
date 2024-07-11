@@ -483,9 +483,14 @@ def get_results(job_id):
 def api_generate_text():
     data = request.get_json()
     prompt = data.get('prompt')
+    model_api = data.get('model_api')
+    default = "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1"
+    # mistralai/Mistral-7B-Instruct-v0.3
+    # microsoft/Phi-3-mini-128k-instruct
+    # https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct
     if not prompt:
         return jsonify({"error": "Prompt is required"}), 400
-    API_URL = "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1"
+    API_URL = model_api if model_api else default
     API_TOKEN = "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"
     headers = {"Authorization": f"Bearer {API_TOKEN}"}
     logging.debug(f"Sending request to Hugging Face API with prompt: {prompt}")
@@ -501,6 +506,7 @@ def api_generate_text():
     else:
         generated_text = 'No response'
     return jsonify({"response": generated_text}), 200
+
 
 
 @app.route('/api/generate_images', methods=['POST'])
@@ -676,6 +682,7 @@ def show_video():
         return "Erreur lors de la récupération des données vidéo.", 500
 
     return render_template('show_video.html', video_path=video_url)
+
 
 if __name__ == "__main__":
     app.run(debug=True)
