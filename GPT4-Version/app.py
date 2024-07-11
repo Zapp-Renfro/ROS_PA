@@ -1,10 +1,11 @@
 import boto3
-from flask import Flask, request, render_template, jsonify, session, url_for, redirect
+from flask import Flask, request, render_template, jsonify, session, url_for, redirect, flash
 from datetime import datetime
 import os
 from moviepy.editor import ImageClip, TextClip, CompositeVideoClip, concatenate_videoclips, AudioFileClip, \
     concatenate_audioclips, CompositeAudioClip
 from moviepy.video.io.VideoFileClip import VideoFileClip
+from werkzeug.security import generate_password_hash, check_password_hash
 from supabase import create_client, Client
 import requests
 import base64
@@ -379,6 +380,58 @@ def generate_text():
         return render_template('result.html', response=generated_text, image_prompt=generated_text)
     else:
         return render_template('index.html')
+
+@app.route('/logout')
+def logout():
+    session.pop('user_id', None)
+    session.pop('user_email', None)
+    flash("Déconnexion réussie.", "success")
+    return redirect(url_for('index'))
+
+
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+    if request.method == 'POST':
+        email = request.form['email']
+        password = request.form['password']
+        hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
+        data = {
+            "email": email,
+            "password": hashed_password,
+            "created_at": 'now()'
+        }
+        try:
+            result = supabase.table('users').insert(data).execute()
+            flash("Inscription réussie. Veuillez vous connecter.", "success")
+            return redirect(url_for('login'))
+        except Exception as e:
+            logging.error(f"Error inserting user into database: {str(e)}")
+            flash("Une erreur est survenue lors de l'inscription. Veuillez réessayer.", "error")
+            return redirect(url_for('signup'))
+    return render_template('signup.html')
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        email = request.form['email']
+        password = request.form['password']
+        try:
+            response = supabase.table('users').select('*').eq('email', email).execute()
+            if response.data:
+                user = response.data[0]
+                if check_password_hash(user['password'], password):
+                    session['user_id'] = user['id']
+                    session['user_email'] = user['email']
+                    flash("Connexion réussie.", "success")
+                    return redirect(url_for('index'))
+                else:
+                    flash("Mot de passe incorrect.", "error")
+            else:
+                flash("Adresse email non trouvée.", "error")
+        except Exception as e:
+            logging.error(f"Error logging in user: {str(e)}")
+            flash("Une erreur est survenue lors de la connexion. Veuillez réessayer.", "error")
+    return render_template('login.html')
 
 
 @app.route('/history', methods=['GET'])
