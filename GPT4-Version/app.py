@@ -22,32 +22,22 @@ import time
 from requests.exceptions import HTTPError
 import tempfile
 
-
 JAMENDO_CLIENT_ID = "1fe12850"
-
-
 HUGGINGFACE_API_TOKEN = "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"  # Remplacez
 API_URL_IMAGE = "https://api-inference.huggingface.co/models/dataautogpt3/ProteusV0.2"
 API_URL_IMAGE_V2 = "https://api-inference.huggingface.co/models/alvdansen/BandW-Manga"
 API_URL_IMAGE_V3 = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0"
-
-
 # Initialisation de l'application Flask
-
 app = Flask(__name__)
 q = Queue(connection=conn)
 app.secret_key = 'votre_cle_secrete'
-
 # Configuration de logging
 logging.basicConfig(level=logging.DEBUG)
-
-
 # Initialisation de Supabase
 SUPABASE_URL = 'https://lpfjfbvhhckrnzdfezgd.supabase.co'
 SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxwZmpmYnZoaGNrcm56ZGZlemdkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTY2NTYyMzEsImV4cCI6MjAzMjIzMjIzMX0.xXvve7bQ0lSz38CT9s9iQF3VlPo-vKbCy5Vw3Zhl84c'
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 HEADERS_LIST = [{"Authorization": f"Bearer {HUGGINGFACE_API_TOKEN}"}]
-
 # Configuration AWS
 AWS_ACCESS_KEY_ID = 'AKIAVRUVT3YMY5C23CNL'
 AWS_SECRET_ACCESS_KEY = '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'
@@ -104,9 +94,9 @@ def text_to_speech(text, output_filename, voice_id='Justin'):
         OutputFormat='mp3',
         VoiceId=voice_id
     )
-
     with open(output_filename, 'wb') as file:
         file.write(response['AudioStream'].read())
+
 
 def format_response(chat_history):
     formatted_text = ""
@@ -117,11 +107,11 @@ def format_response(chat_history):
             formatted_text += f"<b>Réponse:</b> {entry['content']}<br><br>"
     return formatted_text
 
+
 def generate_images_from_prompts(prompts, code):
     filenames = []
     max_retries = 5
     base_retry_delay = 5  # seconds
-
     for prompt in prompts:
         headers = random.choice(HEADERS_LIST)
         for attempt in range(max_retries):
@@ -130,7 +120,6 @@ def generate_images_from_prompts(prompts, code):
                 response = requests.post(API_URL_IMAGE_V3, headers=headers, json={"inputs": prompt})
                 logging.debug(f"Response status code: {response.status_code}")
                 response.raise_for_status()
-
                 if 'image' in response.headers['Content-Type']:
                     logging.debug("Response contains an image")
                     image_data = response.content
@@ -139,20 +128,18 @@ def generate_images_from_prompts(prompts, code):
                     except Exception as e:
                         logging.error(f"Error opening image: {e}")
                         continue
-
                     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
                     filename = f"image_{timestamp}.png"
                     filenames.append(filename)
                     logging.debug(f"Generated filename: {filename}")
-
                     # Convert image to binary data
                     with BytesIO() as img_byte_arr:
                         image.save(img_byte_arr, format='PNG')
                         img_byte_arr.seek(0)
                         image_blob = img_byte_arr.read()
-
                     # Stocker l'image dans Supabase
-                    data = {"prompt_text": prompt, "filename": filename, "image_blob": base64.b64encode(image_blob).decode('utf-8'), "code": code}
+                    data = {"prompt_text": prompt, "filename": filename,
+                            "image_blob": base64.b64encode(image_blob).decode('utf-8'), "code": code}
                     logging.debug(f"Data to insert into images: {data}")
                     try:
                         supabase.table('images').insert(data).execute()
@@ -174,8 +161,8 @@ def generate_images_from_prompts(prompts, code):
             except Exception as err:
                 logging.error(f"An error occurred: {err}")
                 break
-
     return filenames
+
 
 def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
                   outline_color=(0, 0, 0), shadow_color=(50, 50, 50), max_width=None):
@@ -189,11 +176,9 @@ def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
     except IOError:
         font = ImageFont.load_default()
         logging.warning("Font not found, using default font")
-
     if max_width is None:
         max_width = image.width - 40
     logging.debug(f"Max width for text: {max_width}")
-
     lines = []
     words = text.split()
     current_line = ""
@@ -208,18 +193,15 @@ def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
             current_line = word
     lines.append(current_line)
     logging.debug(f"Text split into lines: {lines}")
-
     total_text_height = sum(
         [draw.textbbox((0, 0), line, font=font)[3] - draw.textbbox((0, 0), line, font=font)[1] for line in lines])
     current_height = (image.height - total_text_height) / 2
-
     for line in lines:
         text_bbox = draw.textbbox((0, 0), line, font=font)
         text_width = text_bbox[2] - text_bbox[0]
         text_height = text_bbox[3] - text_bbox[1]
         text_position = ((image.width - text_width) / 2, current_height)
         logging.debug(f"Drawing text: {line} at position {text_position}")
-
         shadow_offset = 2
         draw.text((text_position[0] + shadow_offset, text_position[1] + shadow_offset), line, font=font,
                   fill=shadow_color)
@@ -229,14 +211,13 @@ def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
                 if x != 0 or y != 0:
                     draw.text((text_position[0] + x, text_position[1] + y), line, font=font, fill=outline_color)
         draw.text(text_position, line, font=font, fill=text_color)
-
         current_height += text_height
-
     logging.debug("Exiting text_to_image function")
     return np.array(image)
 
 
-def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Justin'):
+def create_video_with_text(images_data, output_video, prompts, fps=1,
+                           audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Justin'):
     audio_clips = []
     video_clips = []
     audio_dir = 'static/audio'
@@ -294,13 +275,11 @@ def create_video():
     if not images_data:
         logging.error(f"No valid images found for code {code}.")
         return "No valid images found", 400
-
     output_video = 'static/videos/output_video.mp4'
     if not os.path.exists('static/videos'):
         os.makedirs('static/videos')
     create_video_with_text(images_data, output_video, prompts, audio_path='static/music/relaxing-piano-201831.mp3',
                            voice_id='Justin')
-
     session['video_path'] = output_video
     with open(output_video, 'rb') as video_file:
         video_blob = video_file.read()
@@ -317,9 +296,11 @@ def create_video():
         video_url = None
     return render_template('video_result.html', video_url=video_url)
 
+
 @app.route('/', methods=['GET'])
 def index():
     return render_template('index.html')
+
 
 @app.route('/use_text', methods=['POST'])
 def use_text():
@@ -334,7 +315,6 @@ def use_text():
         except Exception as e:
             logging.error(f"Error inserting data into prompts: {str(e)}")
             return jsonify({"error": str(e)}), 400
-
         # Directement utiliser le texte fourni
         return render_template('result.html', response=prompt, image_prompt=prompt)
     else:
@@ -373,6 +353,7 @@ def generate_text():
         generated_text = response_json[0]['generated_text']
     else:
         generated_text = 'No response'
+
     # Fonction pour nettoyer et ajuster le texte généré
     def clean_generated_text(text):
         # Supprimer la partie du prompt initial si elle est répétée dans le texte généré
@@ -389,6 +370,7 @@ def generate_text():
             else:
                 text = text.rstrip('!?,') + '.'
         return text
+
     cleaned_text = clean_generated_text(generated_text)
     # Limiter le texte à la longueur maximale spécifiée
     if len(cleaned_text) > max_length:
@@ -410,12 +392,14 @@ def generate_text():
         return jsonify({"error": str(e)}), 400
     return render_template('result.html', response=cleaned_text, image_prompt=cleaned_text)
 
+
 @app.route('/logout')
 def logout():
     session.pop('user_id', None)
     session.pop('user_email', None)
     flash("Déconnexion réussie.", "success")
     return redirect(url_for('index'))
+
 
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
@@ -437,6 +421,7 @@ def signup():
             flash("Une erreur est survenue lors de l'inscription. Veuillez réessayer.", "error")
             return redirect(url_for('signup'))
     return render_template('signup.html')
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -483,7 +468,6 @@ def generate_images_route():
         func=generate_images_from_prompts, args=(prompts, code), result_ttl=5000
     )
     return render_template('image_result.html', job_id=job.get_id(), prompts=prompts, code=code)
-
 
 
 @app.route('/results/<job_id>', methods=['GET'])
@@ -576,8 +560,8 @@ def music_choice():
     except Exception as e:
         app.logger.exception(f"Error in /music_choice route: {e}")
         error = "Une erreur est survenue. Veuillez réessayer plus tard."
-    return render_template('music_choice.html', mood=mood, mood_tracks=mood_tracks, search_tracks=search_tracks, error=error)
-
+    return render_template('music_choice.html', mood=mood, mood_tracks=mood_tracks, search_tracks=search_tracks,
+                           error=error)
 
 
 @app.route('/select_track', methods=['POST'])
@@ -586,7 +570,6 @@ def select_track():
     track_name = request.form.get('track_name')
     artist_name = request.form.get('artist_name')
     preview_url = request.form.get('preview_url')
-
     # Path to the existing video file
     video_path = session.get('video_path')
     if not os.path.exists(video_path):
@@ -596,34 +579,28 @@ def select_track():
     return render_template('play.html', track_id=track_id, track_name=track_name, artist_name=artist_name,
                            preview_url=preview_url, video_duration=video_duration)
 
+
 @app.route('/final_video', methods=['POST'])
 def final_video():
     track_id = request.form.get('track_id')
     preview_url = request.form.get('preview_url')
     music_start_time = int(request.form.get('start_time'))
     music_end_time = int(request.form.get('end_time'))
-
     video_path = session.get('video_path')
     if not os.path.exists(video_path):
         return "Fichier vidéo non trouvé.", 404
-
     video_duration = get_video_duration(video_path)
     music_segment_duration = music_end_time - music_start_time
-
     if music_segment_duration > video_duration:
         return "La durée de la sélection de la musique dépasse la durée de la vidéo.", 400
-
     if music_end_time <= music_start_time:
         return "Temps de début ou de fin invalide.", 400
-
     audio_path = download_audio_preview(preview_url)
     if not audio_path:
         return "Aperçu audio non trouvé.", 404
-
     generated_id = session.get('generated_id')
     if not generated_id:
         return "ID du texte généré non trouvé dans la session.", 400
-
     try:
         response = supabase.table('prompts').select('response').eq('id', generated_id).execute()
         if response.data:
@@ -633,14 +610,12 @@ def final_video():
     except Exception as e:
         logging.error(f"Error fetching generated text from Supabase: {e}")
         return "Erreur lors de la récupération du texte généré.", 500
-
     voice_audio_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
     try:
         text_to_speech(generated_text, voice_audio_path, voice_id='Justin')
     except Exception as e:
         logging.error(f"Error generating speech from text: {e}")
         return "Erreur lors de la génération de la voix à partir du texte.", 500
-
     output_video_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4").name
     audio_clip = None
     voice_clip = None
@@ -649,10 +624,8 @@ def final_video():
         video_clip = VideoFileClip(video_path)
         audio_clip = AudioFileClip(audio_path).subclip(music_start_time, music_end_time)
         voice_clip = AudioFileClip(voice_audio_path)
-
         if video_clip.duration < voice_clip.duration:
             voice_clip = voice_clip.subclip(0, video_clip.duration)
-
         final_audio = CompositeAudioClip([audio_clip.volumex(0.4), voice_clip.set_duration(video_clip.duration)])
         video_clip = video_clip.set_audio(final_audio)
         video_clip.write_videofile(output_video_path, codec="libx264", fps=24)
@@ -665,7 +638,6 @@ def final_video():
             voice_clip.close()
         os.remove(audio_path)
         os.remove(voice_audio_path)
-
     with open(output_video_path, 'rb') as video_file:
         video_blob = video_file.read()
     video_base64 = base64.b64encode(video_blob).decode('utf-8')
@@ -673,7 +645,6 @@ def final_video():
         "filename": os.path.basename(output_video_path),
         "video_blob": video_base64
     }
-
     try:
         response = supabase.table('videos').insert(video_data).execute()
         video_id = response.data[0]['id']  # Assume the ID is returned
@@ -681,17 +652,15 @@ def final_video():
     except Exception as e:
         logging.error(f"Error inserting video data into Supabase: {e}")
         return "Erreur lors de l'insertion des données vidéo dans Supabase.", 500
-
     os.remove(output_video_path)
-
     return redirect(url_for('show_video'))
+
 
 @app.route('/show_video')
 def show_video():
     video_id = session.get('new_video_id')
     if not video_id:
         return "Vidéo non trouvée.", 404
-
     try:
         response = supabase.table('videos').select('video_blob').eq('id', video_id).execute()
         if response.data:
@@ -702,10 +671,8 @@ def show_video():
     except Exception as e:
         logging.error(f"Error fetching video data from Supabase: {e}")
         return "Erreur lors de la récupération des données vidéo.", 500
-
     return render_template('show_video.html', video_path=video_url)
+
 
 if __name__ == "__main__":
     app.run(debug=True)
-
-
