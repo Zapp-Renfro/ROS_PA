@@ -254,10 +254,7 @@ def create_video_with_text(images_data, output_video, prompts, fps=1,
         img_with_text = text_to_image(img_array, prompt, font_size=48)
         img_clip = ImageClip(img_with_text).set_duration(speech_clip.duration)
 
-        # Adding text as a subtitle
-        txt_clip = TextClip(prompt, fontsize=24, color='white', bg_color='black').set_duration(
-            speech_clip.duration).set_pos('bottom')
-        video = CompositeVideoClip([img_clip.set_audio(speech_clip), txt_clip])
+        video = img_clip.set_audio(speech_clip)
 
         video_clips.append(video)
         audio_clips.append(speech_clip)
@@ -267,8 +264,7 @@ def create_video_with_text(images_data, output_video, prompts, fps=1,
     final_video = concatenate_videoclips(video_clips, method="compose")
     background_music = AudioFileClip(audio_path).subclip(0, final_video.duration)
     background_music = background_music.volumex(0.4)
-    final_audio = concatenate_audioclips(audio_clips)
-    final_audio = CompositeAudioClip([background_music, final_audio.set_duration(background_music.duration)])
+    final_audio = CompositeAudioClip([background_music, final_video.audio])
     final_video = final_video.set_audio(final_audio)
     final_video.write_videofile(output_video, fps=fps, codec='libx264')
     for audio_file in os.listdir(audio_dir):
