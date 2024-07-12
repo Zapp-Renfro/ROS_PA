@@ -227,6 +227,7 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
     final_video.write_videofile(output_video, fps=fps, codec='libx264')
     for audio_file in os.listdir(audio_dir):
         os.remove(os.path.join(audio_dir, audio_file))
+
 @app.route('/create_video', methods=['GET'])
 def create_video():
     prompts = request.args.getlist('prompts')
@@ -455,6 +456,57 @@ def generate_images_route():
         func=generate_images_from_prompts, args=(prompts, code), result_ttl=5000
     )
     return render_template('image_result.html', job_id=job.get_id(), prompts=prompts, code=code)
+
+
+@app.route('/regenerate_image', methods=['POST'])
+def regenerate_image():
+    logging.debug("Received request to regenerate image")
+
+    prompt = request.json.get('prompt')
+    code = request.json.get('code')
+
+    if not prompt or not code:
+        logging.error("Prompt and code are required")
+        return jsonify({"error": "Prompt and code are required"}), 400
+
+    # Ajouter un bruit aléatoire au prompt pour générer des images différentes
+    random_seed = random.randint(0, 9999)
+    prompt_with_noise = f"{prompt} seed:{random_seed}"
+
+    logging.debug(f"Prompt: {prompt_with_noise}, Code: {code}")
+    headers = random.choice(HEADERS_LIST)
+    try:
+        response = requests.post(API_URL_IMAGE_V3, headers=headers, json={"inputs": prompt_with_noise})
+        logging.debug(f"Response status code: {response.status_code}")
+        response.raise_for_status()
+
+        if 'image' in response.headers['Content-Type']:
+            image_data = response.content
+            image = Image.open(BytesIO(image_data))
+            logging.debug("Image successfully retrieved and opened")
+
+            timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+            filename = f"image_{timestamp}.png"
+
+            with BytesIO() as img_byte_arr:
+                image.save(img_byte_arr, format='PNG')
+                img_byte_arr.seek(0)
+                image_blob = img_byte_arr.read()
+
+            data = {"filename": filename, "image_blob": base64.b64encode(image_blob).decode('utf-8')}
+
+            # Mettre à jour l'image existante dans Supabase
+            supabase.table('images').update(data).eq('prompt_text', prompt).eq('code', code).execute()
+            logging.debug("Image successfully updated in Supabase")
+
+            image_url = f"data:image/png;base64,{data['image_blob']}"
+            return jsonify({"image_url": image_url, "prompt_text": prompt})
+        else:
+            logging.error("Failed to generate image, response does not contain image data")
+            return jsonify({"error": "Failed to generate image"}), 500
+    except Exception as e:
+        logging.error(f"Error in regenerate_image: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route('/results/<job_id>', methods=['GET'])
