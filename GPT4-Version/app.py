@@ -21,26 +21,37 @@ import logging
 import time
 from requests.exceptions import HTTPError
 import tempfile
-JAMENDO_CLIENT_ID = "1fe12850"
-HUGGINGFACE_API_TOKEN = "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"  # Remplacez
-API_URL_IMAGE = "https://api-inference.huggingface.co/models/dataautogpt3/ProteusV0.2"
-API_URL_IMAGE_V2 = "https://api-inference.huggingface.co/models/alvdansen/BandW-Manga"
-API_URL_IMAGE_V3 = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0"
+
 # Initialisation de l'application Flask
 app = Flask(__name__)
 q = Queue(connection=conn)
 app.secret_key = 'votre_cle_secrete'
 # Configuration de logging
 logging.basicConfig(level=logging.DEBUG)
+
+
+JAMENDO_CLIENT_ID = os.getenv("JAMENDO_CLIENT_ID")
+HUGGINGFACE_API_TOKEN = os.getenv("HUGGINGFACE_API_TOKEN")
+API_URL_IMAGE = os.getenv("API_URL_IMAGE")
+API_URL_IMAGE_V2 = os.getenv("API_URL_IMAGE_V2")
+API_URL_IMAGE_V3 = os.getenv("API_URL_IMAGE_V3")
+
+
+
+# Configuration de logging
+logging.basicConfig(level=logging.DEBUG)
+
 # Initialisation de Supabase
-SUPABASE_URL = 'https://lpfjfbvhhckrnzdfezgd.supabase.co'
-SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxwZmpmYnZoaGNrcm56ZGZlemdkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTY2NTYyMzEsImV4cCI6MjAzMjIzMjIzMX0.xXvve7bQ0lSz38CT9s9iQF3VlPo-vKbCy5Vw3Zhl84c'
+SUPABASE_URL = os.getenv('SUPABASE_URL')
+SUPABASE_KEY = os.getenv('SUPABASE_KEY')
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
 HEADERS_LIST = [{"Authorization": f"Bearer {HUGGINGFACE_API_TOKEN}"}]
+
 # Configuration AWS
-AWS_ACCESS_KEY_ID = 'AKIAVRUVT3YMY5C23CNL'
-AWS_SECRET_ACCESS_KEY = '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'
-AWS_REGION = 'eu-west-1'
+AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
+AWS_REGION = os.getenv('AWS_REGION')
 mood = "bad"
 def search_music_by_mood(mood):
     url = "https://api.jamendo.com/v3.0/tracks"
