@@ -21,7 +21,6 @@ import logging
 import time
 from requests.exceptions import HTTPError
 import tempfile
-
 JAMENDO_CLIENT_ID = "1fe12850"
 HUGGINGFACE_API_TOKEN = "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"  # Remplacez
 API_URL_IMAGE = "https://api-inference.huggingface.co/models/dataautogpt3/ProteusV0.2"
@@ -43,8 +42,6 @@ AWS_ACCESS_KEY_ID = 'AKIAVRUVT3YMY5C23CNL'
 AWS_SECRET_ACCESS_KEY = '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'
 AWS_REGION = 'eu-west-1'
 mood = "bad"
-
-
 def search_music_by_mood(mood):
     url = "https://api.jamendo.com/v3.0/tracks"
     params = {
@@ -59,13 +56,9 @@ def search_music_by_mood(mood):
         print(response.text)
         return None
     return response.json()
-
-
 def get_video_duration(video_path):
     with VideoFileClip(video_path) as video:
         return int(video.duration)
-
-
 def download_audio_preview(url):
     response = requests.get(url)
     if response.status_code == 200:
@@ -74,14 +67,10 @@ def download_audio_preview(url):
         temp_file.close()
         return temp_file.name
     return None
-
-
 def upload_video_to_supabase(file_path, file_name):
     with open(file_path, 'rb') as file:
         res = supabase.storage().from_('videos').upload(file_name, file)
     return res
-
-
 def text_to_speech(text, output_filename, voice_id='Justin'):
     logging.debug(f"Using voice_id: {voice_id}")
     polly_client = boto3.Session(
@@ -96,8 +85,6 @@ def text_to_speech(text, output_filename, voice_id='Justin'):
     )
     with open(output_filename, 'wb') as file:
         file.write(response['AudioStream'].read())
-
-
 def format_response(chat_history):
     formatted_text = ""
     for entry in chat_history:
@@ -106,8 +93,6 @@ def format_response(chat_history):
         elif entry['role'] == 'assistant':
             formatted_text += f"<b>Réponse:</b> {entry['content']}<br><br>"
     return formatted_text
-
-
 def generate_images_from_prompts(prompts, code):
     filenames = []
     max_retries = 5
@@ -138,8 +123,7 @@ def generate_images_from_prompts(prompts, code):
                         img_byte_arr.seek(0)
                         image_blob = img_byte_arr.read()
                     # Stocker l'image dans Supabase
-                    data = {"prompt_text": prompt, "filename": filename,
-                            "image_blob": base64.b64encode(image_blob).decode('utf-8'), "code": code}
+                    data = {"prompt_text": prompt, "filename": filename, "image_blob": base64.b64encode(image_blob).decode('utf-8'), "code": code}
                     logging.debug(f"Data to insert into images: {data}")
                     try:
                         supabase.table('images').insert(data).execute()
@@ -162,8 +146,6 @@ def generate_images_from_prompts(prompts, code):
                 logging.error(f"An error occurred: {err}")
                 break
     return filenames
-
-
 def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
                   outline_color=(0, 0, 0), shadow_color=(50, 50, 50), max_width=None):
     logging.debug("Entering text_to_image function")
@@ -214,10 +196,7 @@ def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
         current_height += text_height
     logging.debug("Exiting text_to_image function")
     return np.array(image)
-
-
-def create_video_with_text(images_data, output_video, prompts, fps=1,
-                           audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Justin'):
+def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Justin'):
     audio_clips = []
     video_clips = []
     audio_dir = 'static/audio'
@@ -248,8 +227,6 @@ def create_video_with_text(images_data, output_video, prompts, fps=1,
     final_video.write_videofile(output_video, fps=fps, codec='libx264')
     for audio_file in os.listdir(audio_dir):
         os.remove(os.path.join(audio_dir, audio_file))
-
-
 @app.route('/create_video', methods=['GET'])
 def create_video():
     prompts = request.args.getlist('prompts')
@@ -295,13 +272,9 @@ def create_video():
         logging.error(f"Error inserting video data into Supabase: {e}")
         video_url = None
     return render_template('video_result.html', video_url=video_url)
-
-
 @app.route('/', methods=['GET'])
 def index():
     return render_template('index.html')
-
-
 @app.route('/use_text', methods=['POST'])
 def use_text():
     prompt = request.form.get('prompt2')
@@ -326,14 +299,17 @@ def generate_text():
     if 'user_email' not in session:
         flash("Veuillez vous connecter pour utiliser cette fonctionnalité.", "error")
         return redirect(url_for('login'))
+
     prompt_start = request.form['prompt_start']
     prompt = request.form['prompt']
     full_prompt = f"{prompt_start} {prompt}"
     max_length = 1000  # Maximum number of characters
     min_length = 800  # Minimum number of characters
+
     API_URL_TEXT = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct"
     API_TOKEN = "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"
     headers = {"Authorization": f"Bearer {API_TOKEN}"}
+
     # Utiliser la fonction generate de Hugging Face pour définir les paramètres de génération
     data = {
         "inputs": full_prompt,
@@ -345,10 +321,14 @@ def generate_text():
             "eos_token_id": None
         }
     }
+
     response = requests.post(API_URL_TEXT, headers=headers, json=data)
+
     if response.status_code != 200:
         return jsonify({"error": "Failed to generate response from model"}), response.status_code
+
     response_json = response.json()
+
     if isinstance(response_json, list) and len(response_json) > 0 and 'generated_text' in response_json[0]:
         generated_text = response_json[0]['generated_text']
     else:
@@ -359,9 +339,11 @@ def generate_text():
         # Supprimer la partie du prompt initial si elle est répétée dans le texte généré
         if text.startswith(full_prompt):
             text = text[len(full_prompt):].strip()
+
         # Assurez-vous que le texte a une longueur appropriée
         if len(text) < min_length:
             text += ' ...'  # Ajouter des points de suspension si le texte est trop court
+
         # Assurez-vous que le texte se termine par un point
         if not text.endswith('.'):
             last_sentence_end = text.rfind('.')
@@ -369,9 +351,11 @@ def generate_text():
                 text = text[:last_sentence_end + 1]
             else:
                 text = text.rstrip('!?,') + '.'
+
         return text
 
     cleaned_text = clean_generated_text(generated_text)
+
     # Limiter le texte à la longueur maximale spécifiée
     if len(cleaned_text) > max_length:
         cleaned_text = cleaned_text[:max_length]
@@ -382,7 +366,9 @@ def generate_text():
                 cleaned_text = cleaned_text[:last_sentence_end + 1]
             else:
                 cleaned_text = cleaned_text.rstrip('!?,') + '.'
+
     data = {"prompt": full_prompt, "response": cleaned_text}
+
     try:
         result = supabase.table('prompts').insert(data).execute()
         generated_id = result.data[0]['id']
@@ -390,6 +376,7 @@ def generate_text():
     except Exception as e:
         logging.error(f"Error inserting data into prompts: {str(e)}")
         return jsonify({"error": str(e)}), 400
+
     return render_template('result.html', response=cleaned_text, image_prompt=cleaned_text)
 
 

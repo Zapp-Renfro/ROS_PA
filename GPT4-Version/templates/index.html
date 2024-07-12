@@ -28,7 +28,6 @@
       <a href="/signup" class="w3-bar-item w3-button w3-hide-small w3-right w3-hover-red">Signup</a>
     {% endif %}
   </div>
-
   <!-- Navbar on small screens -->
   <div id="navDemo" class="w3-bar-block w3-white w3-hide w3-hide-large w3-hide-medium">
     <a href="#about" class="w3-bar-item w3-button" onclick="toggleFunction()">ABOUT</a>
@@ -43,8 +42,6 @@
     {% endif %}
   </div>
 </div>
-
-
 <!-- First Parallax Image with Logo Text -->
 <div class="bgimg-1 w3-display-container w3-opacity-min" id="home">
   <div class="w3-display-middle" style="white-space:nowrap;">
@@ -59,6 +56,12 @@
     <div class="container">
       {% if 'user_email' in session %}
       <form action="/generate_text" method="post">
+          <label for="prompt_start">Choose a prompt start:</label>
+          <select id="prompt_start" name="prompt_start">
+              <option value="make me">Make me</option>
+              <option value="talk about">Talk about</option>
+          </select>
+          <br>
           <label for="prompt">Prompt:</label>
           <input type="text" id="prompt" name="prompt" required>
           <input type="submit" value="Générer">
@@ -80,7 +83,6 @@
     </div>
   </div>
 </div>
-
 <!-- Second Parallax Image with Portfolio Text -->
 <div class="bgimg-2 w3-display-container w3-opacity-min">
   <div class="w3-display-middle">
@@ -181,6 +183,5 @@ function toggleFunction() {
     }
 }
 </script>
-
 </body>
 </html>
