@@ -236,8 +236,15 @@ def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
     return np.array(image)
 
 
-def create_text_frames(text, duration, fps, image_size, font_path, font_size=48, text_color="white",
-                       bg_color=(0, 0, 0, 0)):
+from PIL import Image, ImageDraw, ImageFont
+from moviepy.editor import ImageClip, CompositeVideoClip, AudioFileClip, concatenate_videoclips, concatenate_audioclips, \
+    CompositeAudioClip
+import numpy as np
+import os
+import logging
+
+
+def create_text_frames(text, duration, fps, image_size, font_path, font_size=48, text_color=(255, 255, 255)):
     font = ImageFont.truetype(font_path, font_size)
     text_frames = []
 
@@ -246,7 +253,7 @@ def create_text_frames(text, duration, fps, image_size, font_path, font_size=48,
     fade_frames = int(fade_duration * fps)
 
     for i in range(num_frames):
-        img = Image.new("RGBA", image_size, bg_color)
+        img = Image.new("RGBA", image_size, (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
         text_width, text_height = draw.textsize(text, font=font)
         position = ((image_size[0] - text_width) // 2, (image_size[1] - text_height) // 2)
@@ -282,8 +289,7 @@ def create_video_with_text(images_data, output_video, prompts, fps=1,
 
         image = Image.open(img_data).convert('RGBA')
         img_array = np.array(image)
-        img_with_text = text_to_image(img_array, prompt, font_size=48)
-        img_clip = ImageClip(img_with_text).set_duration(speech_clip.duration)
+        img_clip = ImageClip(img_array).set_duration(speech_clip.duration)
 
         # Create text frames with fade in/out effect
         text_frames = create_text_frames(prompt, speech_clip.duration, fps, img_clip.size, font_path, font_size=48)
@@ -312,6 +318,9 @@ def create_video_with_text(images_data, output_video, prompts, fps=1,
 
     for audio_file in os.listdir(audio_dir):
         os.remove(os.path.join(audio_dir, audio_file))
+
+
+
 
 
 @app.route('/create_video', methods=['GET'])
