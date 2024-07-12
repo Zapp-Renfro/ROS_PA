@@ -12,7 +12,6 @@ from supabase import create_client, Client
 SUPABASE_URL = 'https://lpfjfbvhhckrnzdfezgd.supabase.co'
 SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxwZmpmYnZoaGNrcm56ZGZlemdkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTY2NTYyMzEsImV4cCI6MjAzMjIzMjIzMX0.xXvve7bQ0lSz38CT9s9iQF3VlPo-vKbCy5Vw3Zhl84c'
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-HEADERS_LIST = [{"Authorization": f"Bearer {HUGGINGFACE_API_TOKEN}"}]
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
