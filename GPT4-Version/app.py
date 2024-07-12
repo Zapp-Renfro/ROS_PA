@@ -21,6 +21,7 @@ import logging
 import time
 from requests.exceptions import HTTPError
 import tempfile
+import json
 
 
 JAMENDO_CLIENT_ID = "1fe12850"
@@ -102,11 +103,24 @@ def text_to_speech(text, output_filename, voice_id='Justin'):
     response = polly_client.synthesize_speech(
         Text=text,
         OutputFormat='mp3',
-        VoiceId=voice_id
+        VoiceId=voice_id,
+        SpeechMarkTypes=['word']
     )
 
     with open(output_filename, 'wb') as file:
         file.write(response['AudioStream'].read())
+
+    marks = []
+    if 'SpeechMarkTypes' in response:
+        marks_response = polly_client.synthesize_speech(
+            Text=text,
+            OutputFormat='json',
+            VoiceId=voice_id,
+            SpeechMarkTypes=['word']
+        )
+        marks = marks_response['AudioStream'].read().decode('utf-8').splitlines()
+    return marks
+
 
 
 def format_response(chat_history):
@@ -236,8 +250,22 @@ def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
     logging.debug("Exiting text_to_image function")
     return np.array(image)
 
+def parse_speech_marks(marks):
+    word_timings = []
+    for mark in marks:
+        data = json.loads(mark)
+        if data['type'] == 'word':
+            word_timings.append({
+                'start_time': data['start'],
+                'end_time': data['end'],
+                'word': data['value']
+            })
+    return word_timings
 
-def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Justin'):
+
+
+def create_video_with_text(images_data, output_video, prompts, fps=1,
+                           audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Justin'):
     audio_clips = []
     video_clips = []
     audio_dir = 'static/audio'
@@ -247,18 +275,31 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
         os.remove(os.path.join(audio_dir, audio_file))
     for img_data, prompt in zip(images_data, prompts):
         audio_filename = os.path.join(audio_dir, f"{prompt[:10]}_audio.mp3")
-        text_to_speech(prompt, audio_filename, voice_id)
+        marks = text_to_speech(prompt, audio_filename, voice_id)
         speech_clip = AudioFileClip(audio_filename)
+        word_timings = parse_speech_marks(marks)
+
         image = Image.open(img_data).convert('RGBA')
         img_array = np.array(image)
-        img_with_text = text_to_image(img_array, prompt, font_size=48)
-        img_clip = ImageClip(img_with_text).set_duration(speech_clip.duration)
-        video = img_clip.set_audio(speech_clip)
+
+        img_clips = []
+        for timing in word_timings:
+            word = timing['word']
+            start_time = timing['start_time'] / 1000.0  # Convert to seconds
+            end_time = timing['end_time'] / 1000.0  # Convert to seconds
+            img_with_text = text_to_image(img_array, word, font_size=48)
+            img_clip = ImageClip(img_with_text).set_duration(end_time - start_time).set_start(start_time)
+            img_clips.append(img_clip)
+
+        video = CompositeVideoClip(img_clips).set_duration(speech_clip.duration)
+        video = video.set_audio(speech_clip)
         video_clips.append(video)
         audio_clips.append(speech_clip)
+
     if not video_clips:
         logging.error("No video clips were created. Ensure that image data and prompts are valid.")
         return
+
     final_video = concatenate_videoclips(video_clips, method="compose")
     background_music = AudioFileClip(audio_path).subclip(0, final_video.duration)
     background_music = background_music.volumex(0.4)
