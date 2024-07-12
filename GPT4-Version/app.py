@@ -236,8 +236,7 @@ def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
     return np.array(image)
 
 
-def create_video_with_text(images_data, output_video, prompts, fps=1,
-                           audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Justin'):
+def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Justin'):
     audio_clips = []
     video_clips = []
     audio_dir = 'static/audio'
@@ -253,9 +252,7 @@ def create_video_with_text(images_data, output_video, prompts, fps=1,
         img_array = np.array(image)
         img_with_text = text_to_image(img_array, prompt, font_size=48)
         img_clip = ImageClip(img_with_text).set_duration(speech_clip.duration)
-
         video = img_clip.set_audio(speech_clip)
-
         video_clips.append(video)
         audio_clips.append(speech_clip)
     if not video_clips:
@@ -264,7 +261,8 @@ def create_video_with_text(images_data, output_video, prompts, fps=1,
     final_video = concatenate_videoclips(video_clips, method="compose")
     background_music = AudioFileClip(audio_path).subclip(0, final_video.duration)
     background_music = background_music.volumex(0.4)
-    final_audio = CompositeAudioClip([background_music, final_video.audio])
+    final_audio = concatenate_audioclips(audio_clips)
+    final_audio = CompositeAudioClip([background_music, final_audio.set_duration(background_music.duration)])
     final_video = final_video.set_audio(final_audio)
     final_video.write_videofile(output_video, fps=fps, codec='libx264')
     for audio_file in os.listdir(audio_dir):
@@ -318,7 +316,6 @@ def create_video():
         logging.error(f"Error inserting video data into Supabase: {e}")
         video_url = None
     return render_template('video_result.html', video_url=video_url)
-
 
 @app.route('/', methods=['GET'])
 def index():
@@ -419,7 +416,6 @@ def logout():
     session.pop('user_email', None)
     flash("Déconnexion réussie.", "success")
     return redirect(url_for('index'))
-
 
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
