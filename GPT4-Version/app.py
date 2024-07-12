@@ -23,8 +23,14 @@ from requests.exceptions import HTTPError
 import tempfile
 from moviepy.config import change_settings
 
-change_settings({"IMAGEMAGICK_BINARY": "/usr/bin/convert"})
 
+# Configure MoviePy to use ImageMagick on Heroku
+imagemagick_path = "/usr/bin/convert"
+change_settings({"IMAGEMAGICK_BINARY": imagemagick_path})
+
+# Log the path being used for ImageMagick
+logging.basicConfig(level=logging.DEBUG)
+logging.debug(f"Using ImageMagick binary at: {imagemagick_path}")
 JAMENDO_CLIENT_ID = "1fe12850"
 
 
