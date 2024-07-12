@@ -1,2 +1,2 @@
-web: bash -c "cp config/policy.xml /app/.config/ImageMagick/policy.xml && gunicorn app:app"
+web: gunicorn app:app
 worker: python worker.py

@@ -2,15 +2,13 @@ import boto3
 from flask import Flask, request, render_template, jsonify, session, url_for, redirect, flash
 from datetime import datetime
 import os
-from moviepy.editor import ImageClip, TextClip, CompositeVideoClip, concatenate_videoclips, AudioFileClip, \
-    concatenate_audioclips, CompositeAudioClip
+
 from moviepy.video.io.VideoFileClip import VideoFileClip
 from werkzeug.security import generate_password_hash, check_password_hash
 from supabase import create_client, Client
 import requests
 import base64
 from io import BytesIO
-from PIL import Image, ImageDraw, ImageFont
 import random
 import numpy as np
 import uuid
@@ -21,16 +19,13 @@ import logging
 import time
 from requests.exceptions import HTTPError
 import tempfile
-from moviepy.config import change_settings
+
+from moviepy.editor import *
+from PIL import Image, ImageDraw, ImageFont
+import numpy as np
+import os
 
 
-# Configure MoviePy to use ImageMagick on Heroku
-imagemagick_path = "/usr/bin/convert"
-change_settings({"IMAGEMAGICK_BINARY": imagemagick_path})
-
-# Log the path being used for ImageMagick
-logging.basicConfig(level=logging.DEBUG)
-logging.debug(f"Using ImageMagick binary at: {imagemagick_path}")
 JAMENDO_CLIENT_ID = "1fe12850"
 
 
@@ -226,26 +221,21 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
 
         img_clip = ImageClip(img_with_text).set_duration(speech_clip.duration)
 
-        # Create a TextClip that displays text gradually
-        def text_generator(txt, duration):
-            txt_clip = TextClip(txt, fontsize=24, color='white', size=img_clip.size, font='DejaVuSans-Bold')
-            txt_clip = txt_clip.set_duration(duration).crossfadein(0.5).crossfadeout(0.5)
-            return txt_clip
+        # Create a TextClip that displays text gradually using PIL
+        def text_generator(txt, duration, img_size):
+            clip_duration = duration / len(txt.split())
+            text_clips = []
+            for i, word in enumerate(txt.split()):
+                img_copy = img_with_text.copy()
+                draw = ImageDraw.Draw(img_copy)
+                draw.text((20, img_size[1] // 2), ' '.join(txt.split()[:i+1]), font=font, fill=text_color)
+                text_clip = ImageClip(np.array(img_copy)).set_duration(clip_duration)
+                text_clips.append(text_clip)
+            return concatenate_videoclips(text_clips)
 
-        txt_clips = []
-        words = prompt.split()
-        total_words = len(words)
-        duration_per_word = speech_clip.duration / total_words
+        txt_clip = text_generator(prompt, speech_clip.duration, img_clip.size)
 
-        current_time = 0
-        for word in words:
-            txt_clip = text_generator(word, duration_per_word).set_start(current_time)
-            txt_clips.append(txt_clip)
-            current_time += duration_per_word
-
-        txt_comp_clip = CompositeVideoClip([img_clip] + txt_clips)
-
-        video = txt_comp_clip.set_audio(speech_clip)
+        video = CompositeVideoClip([img_clip, txt_clip.set_position('center')]).set_audio(speech_clip)
         video_clips.append(video)
         audio_clips.append(speech_clip)
 
@@ -263,67 +253,6 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
 
     for audio_file in os.listdir(audio_dir):
         os.remove(os.path.join(audio_dir, audio_file))
-
-
-
-def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Justin'):
-    audio_clips = []
-    video_clips = []
-    audio_dir = 'static/audio'
-    if not os.path.exists(audio_dir):
-        os.makedirs(audio_dir)
-    for audio_file in os.listdir(audio_dir):
-        os.remove(os.path.join(audio_dir, audio_file))
-    for img_data, prompt in zip(images_data, prompts):
-        audio_filename = os.path.join(audio_dir, f"{prompt[:10]}_audio.mp3")
-        text_to_speech(prompt, audio_filename, voice_id)
-        speech_clip = AudioFileClip(audio_filename)
-
-        image = Image.open(img_data).convert('RGBA')
-        img_array = np.array(image)
-        img_with_text = text_to_image(img_array, prompt, font_size=48)
-
-        img_clip = ImageClip(img_with_text).set_duration(speech_clip.duration)
-
-        # Create a TextClip that displays text gradually
-        def text_generator(txt, duration):
-            txt_clip = TextClip(txt, fontsize=24, color='white', size=img_clip.size, font='DejaVuSans-Bold')
-            txt_clip = txt_clip.set_duration(duration).crossfadein(0.5).crossfadeout(0.5)
-            return txt_clip
-
-        txt_clips = []
-        words = prompt.split()
-        total_words = len(words)
-        duration_per_word = speech_clip.duration / total_words
-
-        current_time = 0
-        for word in words:
-            txt_clip = text_generator(word, duration_per_word).set_start(current_time)
-            txt_clips.append(txt_clip)
-            current_time += duration_per_word
-
-        txt_comp_clip = CompositeVideoClip([img_clip] + txt_clips)
-
-        video = txt_comp_clip.set_audio(speech_clip)
-        video_clips.append(video)
-        audio_clips.append(speech_clip)
-
-    if not video_clips:
-        logging.error("No video clips were created. Ensure that image data and prompts are valid.")
-        return
-
-    final_video = concatenate_videoclips(video_clips, method="compose")
-    background_music = AudioFileClip(audio_path).subclip(0, final_video.duration)
-    background_music = background_music.volumex(0.4)
-    final_audio = concatenate_audioclips(audio_clips)
-    final_audio = CompositeAudioClip([background_music, final_audio.set_duration(background_music.duration)])
-    final_video = final_video.set_audio(final_audio)
-    final_video.write_videofile(output_video, fps=fps, codec='libx264')
-
-    for audio_file in os.listdir(audio_dir):
-        os.remove(os.path.join(audio_dir, audio_file))
-
-
 
 @app.route('/create_video', methods=['GET'])
 def create_video():
@@ -372,6 +301,10 @@ def create_video():
         logging.error(f"Error inserting video data into Supabase: {e}")
         video_url = None
     return render_template('video_result.html', video_url=video_url)
+
+
+
+
 
 @app.route('/', methods=['GET'])
 def index():
