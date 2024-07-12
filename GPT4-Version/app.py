@@ -1,3 +1,5 @@
+# app.py
+
 import boto3
 from flask import Flask, request, render_template, jsonify, session, url_for, redirect, flash
 from datetime import datetime
@@ -23,25 +25,20 @@ from requests.exceptions import HTTPError
 import tempfile
 from video_tasks import create_video_with_text
 
-
 JAMENDO_CLIENT_ID = "1fe12850"
-
 
 HUGGINGFACE_API_TOKEN = "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"  # Remplacez
 API_URL_IMAGE = "https://api-inference.huggingface.co/models/dataautogpt3/ProteusV0.2"
 API_URL_IMAGE_V2 = "https://api-inference.huggingface.co/models/alvdansen/BandW-Manga"
 API_URL_IMAGE_V3 = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0"
 
-
 # Initialisation de l'application Flask
-
 app = Flask(__name__)
 q = Queue(connection=conn)
 app.secret_key = 'votre_cle_secrete'
 
 # Configuration de logging
 logging.basicConfig(level=logging.DEBUG)
-
 
 # Initialisation de Supabase
 SUPABASE_URL = 'https://lpfjfbvhhckrnzdfezgd.supabase.co'
@@ -54,7 +51,6 @@ AWS_ACCESS_KEY_ID = 'AKIAVRUVT3YMY5C23CNL'
 AWS_SECRET_ACCESS_KEY = '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'
 AWS_REGION = 'eu-west-1'
 mood = "bad"
-
 
 def search_music_by_mood(mood):
     url = "https://api.jamendo.com/v3.0/tracks"
@@ -71,11 +67,9 @@ def search_music_by_mood(mood):
         return None
     return response.json()
 
-
 def get_video_duration(video_path):
     with VideoFileClip(video_path) as video:
         return int(video.duration)
-
 
 def download_audio_preview(url):
     response = requests.get(url)
@@ -86,14 +80,10 @@ def download_audio_preview(url):
         return temp_file.name
     return None
 
-
 def upload_video_to_supabase(file_path, file_name):
     with open(file_path, 'rb') as file:
         res = supabase.storage().from_('videos').upload(file_name, file)
     return res
-
-
-
 
 def format_response(chat_history):
     formatted_text = ""
@@ -223,7 +213,6 @@ def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
     return np.array(image)
 
 
-
 @app.route('/create_video', methods=['GET'])
 def create_video():
     prompts = request.args.getlist('prompts')
@@ -256,7 +245,7 @@ def create_video():
 
     # Enqueue the video creation task
     job = q.enqueue_call(
-        func=create_video_with_text, args=(images_data, output_video, prompts, 'static/music/relaxing-piano-201831.mp3', 'Justin'), result_ttl=5000
+        func=create_video_with_text, args=(images_data, output_video, prompts, 1, 'static/music/relaxing-piano-201831.mp3', 'Justin'), result_ttl=5000
     )
 
     return jsonify({"job_id": job.get_id()}), 202
@@ -497,11 +486,5 @@ def api_generate_images():
     )
     return jsonify({'job_id': job.get_id()}), 202
 
-
-
-
-
 if __name__ == "__main__":
     app.run(debug=True)
-
-
