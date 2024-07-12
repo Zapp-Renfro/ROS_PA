@@ -21,7 +21,6 @@ import logging
 import time
 from requests.exceptions import HTTPError
 import tempfile
-import json
 
 
 JAMENDO_CLIENT_ID = "1fe12850"
@@ -108,30 +107,6 @@ def text_to_speech(text, output_filename, voice_id='Justin'):
 
     with open(output_filename, 'wb') as file:
         file.write(response['AudioStream'].read())
-
-    # Retourner le nom du fichier audio généré
-    return output_filename
-
-
-def get_speech_marks(text, voice_id='Justin'):
-    logging.debug(f"Using voice_id: {voice_id} for speech marks")
-    polly_client = boto3.Session(
-        aws_access_key_id=AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-        region_name=AWS_REGION
-    ).client('polly')
-    response = polly_client.synthesize_speech(
-        Text=text,
-        OutputFormat='json',
-        VoiceId=voice_id,
-        SpeechMarkTypes=['word']
-    )
-
-    marks = response['AudioStream'].read().decode('utf-8').splitlines()
-    return marks
-
-
-
 
 def format_response(chat_history):
     formatted_text = ""
@@ -261,19 +236,6 @@ def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
     return np.array(image)
 
 
-def parse_speech_marks(marks):
-    word_timings = []
-    for mark in marks:
-        data = json.loads(mark)
-        if data['type'] == 'word':
-            word_timings.append({
-                'start_time': data['start'],
-                'end_time': data['end'],
-                'word': data['value']
-            })
-    return word_timings
-
-
 def create_video_with_text(images_data, output_video, prompts, fps=1,
                            audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Justin'):
     audio_clips = []
@@ -286,31 +248,22 @@ def create_video_with_text(images_data, output_video, prompts, fps=1,
     for img_data, prompt in zip(images_data, prompts):
         audio_filename = os.path.join(audio_dir, f"{prompt[:10]}_audio.mp3")
         text_to_speech(prompt, audio_filename, voice_id)
-        marks = get_speech_marks(prompt, voice_id)
         speech_clip = AudioFileClip(audio_filename)
-        word_timings = parse_speech_marks(marks)
-
         image = Image.open(img_data).convert('RGBA')
         img_array = np.array(image)
+        img_with_text = text_to_image(img_array, prompt, font_size=48)
+        img_clip = ImageClip(img_with_text).set_duration(speech_clip.duration)
 
-        img_clips = []
-        for timing in word_timings:
-            word = timing['word']
-            start_time = timing['start_time'] / 1000.0  # Convertir en secondes
-            end_time = timing['end_time'] / 1000.0  # Convertir en secondes
-            img_with_text = text_to_image(img_array, word, font_size=48)
-            img_clip = ImageClip(img_with_text).set_duration(end_time - start_time).set_start(start_time)
-            img_clips.append(img_clip)
+        # Adding text as a subtitle
+        txt_clip = TextClip(prompt, fontsize=24, color='white', bg_color='black').set_duration(
+            speech_clip.duration).set_pos('bottom')
+        video = CompositeVideoClip([img_clip.set_audio(speech_clip), txt_clip])
 
-        video = CompositeVideoClip(img_clips).set_duration(speech_clip.duration)
-        video = video.set_audio(speech_clip)
         video_clips.append(video)
         audio_clips.append(speech_clip)
-
     if not video_clips:
         logging.error("No video clips were created. Ensure that image data and prompts are valid.")
         return
-
     final_video = concatenate_videoclips(video_clips, method="compose")
     background_music = AudioFileClip(audio_path).subclip(0, final_video.duration)
     background_music = background_music.volumex(0.4)
@@ -321,19 +274,6 @@ def create_video_with_text(images_data, output_video, prompts, fps=1,
     for audio_file in os.listdir(audio_dir):
         os.remove(os.path.join(audio_dir, audio_file))
 
-def create_video_task(images_data, prompts, code):
-    output_video = f'static/videos/output_video_{code}.mp4'
-    create_video_with_text(images_data, output_video, prompts, audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Justin')
-    # Stocker la vidéo dans Supabase ou tout autre stockage de votre choix.
-    with open(output_video, 'rb') as video_file:
-        video_blob = video_file.read()
-    video_base64 = base64.b64encode(video_blob).decode('utf-8')
-    video_data = {
-        "filename": os.path.basename(output_video),
-        "video_blob": video_base64
-    }
-    supabase.table('videos').insert(video_data).execute()
-    return output_video
 
 @app.route('/create_video', methods=['GET'])
 def create_video():
@@ -361,10 +301,28 @@ def create_video():
         logging.error(f"No valid images found for code {code}.")
         return "No valid images found", 400
 
-    # Enregistrer la tâche pour qu'elle soit exécutée en arrière-plan
-    job = q.enqueue(create_video_task, images_data, prompts, code)
+    output_video = 'static/videos/output_video.mp4'
+    if not os.path.exists('static/videos'):
+        os.makedirs('static/videos')
+    create_video_with_text(images_data, output_video, prompts, audio_path='static/music/relaxing-piano-201831.mp3',
+                           voice_id='Justin')
 
-    return jsonify({"job_id": job.get_id()}), 202
+    session['video_path'] = output_video
+    with open(output_video, 'rb') as video_file:
+        video_blob = video_file.read()
+    video_base64 = base64.b64encode(video_blob).decode('utf-8')
+    video_data = {
+        "filename": os.path.basename(output_video),
+        "video_blob": video_base64
+    }
+    try:
+        supabase.table('videos').insert(video_data).execute()
+        video_url = f"data:video/mp4;base64,{video_base64}"
+    except Exception as e:
+        logging.error(f"Error inserting video data into Supabase: {e}")
+        video_url = None
+    return render_template('video_result.html', video_url=video_url)
+
 
 @app.route('/', methods=['GET'])
 def index():
@@ -395,17 +353,14 @@ def generate_text():
     if 'user_email' not in session:
         flash("Veuillez vous connecter pour utiliser cette fonctionnalité.", "error")
         return redirect(url_for('login'))
-
     prompt_start = request.form['prompt_start']
     prompt = request.form['prompt']
     full_prompt = f"{prompt_start} {prompt}"
     max_length = 1000  # Maximum number of characters
     min_length = 800  # Minimum number of characters
-
     API_URL_TEXT = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct"
     API_TOKEN = "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"
     headers = {"Authorization": f"Bearer {API_TOKEN}"}
-
     # Utiliser la fonction generate de Hugging Face pour définir les paramètres de génération
     data = {
         "inputs": full_prompt,
@@ -417,29 +372,22 @@ def generate_text():
             "eos_token_id": None
         }
     }
-
     response = requests.post(API_URL_TEXT, headers=headers, json=data)
-
     if response.status_code != 200:
         return jsonify({"error": "Failed to generate response from model"}), response.status_code
-
     response_json = response.json()
-
     if isinstance(response_json, list) and len(response_json) > 0 and 'generated_text' in response_json[0]:
         generated_text = response_json[0]['generated_text']
     else:
         generated_text = 'No response'
-
     # Fonction pour nettoyer et ajuster le texte généré
     def clean_generated_text(text):
         # Supprimer la partie du prompt initial si elle est répétée dans le texte généré
         if text.startswith(full_prompt):
             text = text[len(full_prompt):].strip()
-
         # Assurez-vous que le texte a une longueur appropriée
         if len(text) < min_length:
             text += ' ...'  # Ajouter des points de suspension si le texte est trop court
-
         # Assurez-vous que le texte se termine par un point
         if not text.endswith('.'):
             last_sentence_end = text.rfind('.')
@@ -447,11 +395,8 @@ def generate_text():
                 text = text[:last_sentence_end + 1]
             else:
                 text = text.rstrip('!?,') + '.'
-
         return text
-
     cleaned_text = clean_generated_text(generated_text)
-
     # Limiter le texte à la longueur maximale spécifiée
     if len(cleaned_text) > max_length:
         cleaned_text = cleaned_text[:max_length]
@@ -462,9 +407,7 @@ def generate_text():
                 cleaned_text = cleaned_text[:last_sentence_end + 1]
             else:
                 cleaned_text = cleaned_text.rstrip('!?,') + '.'
-
     data = {"prompt": full_prompt, "response": cleaned_text}
-
     try:
         result = supabase.table('prompts').insert(data).execute()
         generated_id = result.data[0]['id']
@@ -472,7 +415,6 @@ def generate_text():
     except Exception as e:
         logging.error(f"Error inserting data into prompts: {str(e)}")
         return jsonify({"error": str(e)}), 400
-
     return render_template('result.html', response=cleaned_text, image_prompt=cleaned_text)
 
 @app.route('/logout')
