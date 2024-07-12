@@ -142,7 +142,6 @@ def generate_images_from_prompts(prompts, code):
 
     return filenames
 
-from PIL import Image, ImageDraw, ImageFont
 
 def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
                   outline_color=(0, 0, 0), shadow_color=(50, 50, 50), max_width=None):
