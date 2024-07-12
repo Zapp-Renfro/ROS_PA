@@ -215,12 +215,17 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
 
         # Create a TextClip that displays text gradually using PIL
         def text_generator(txt, duration, img_size):
+            try:
+                font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+                font = ImageFont.truetype(font_path, 24)
+            except IOError:
+                font = ImageFont.load_default()
             clip_duration = duration / len(txt.split())
             text_clips = []
             for i, word in enumerate(txt.split()):
                 img_copy = Image.fromarray(img_with_text.copy())  # Ensure we're working with PIL.Image
                 draw = ImageDraw.Draw(img_copy)
-                draw.text((20, img_size[1] // 2), ' '.join(txt.split()[:i+1]), font=font, fill=text_color)
+                draw.text((20, img_size[1] // 2), ' '.join(txt.split()[:i+1]), font=font, fill='white')
                 text_clip = ImageClip(np.array(img_copy)).set_duration(clip_duration)
                 text_clips.append(text_clip)
             return concatenate_videoclips(text_clips)
