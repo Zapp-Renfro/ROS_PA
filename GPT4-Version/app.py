@@ -56,6 +56,13 @@ AWS_SECRET_ACCESS_KEY = 'RPEQw0rg7rjArpri1Ti7QsotqSCgJnUurw3dYZmt'
 AWS_REGION = 'eu-west-1'
 mood = "bad"
 
+import os
+import logging
+from flask import Flask, request, jsonify
+from rq import Queue
+from worker import conn
+from tasks import create_video_with_text, fetch_images
+
 
 
 def text_to_speech(text, output_filename, voice_id='Justin'):
@@ -144,112 +151,6 @@ def generate_images_from_prompts(prompts, code):
     return filenames
 
 
-def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
-                  outline_color=(0, 0, 0), shadow_color=(50, 50, 50), max_width=None):
-    image = Image.fromarray(img_array)
-    draw = ImageDraw.Draw(image)
-    try:
-        font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-        font = ImageFont.truetype(font_path, font_size)
-    except IOError:
-        font = ImageFont.load_default()
-
-    if max_width is None:
-        max_width = image.width - 40
-
-    lines = []
-    words = text.split()
-    current_line = ""
-    for word in words:
-        test_line = f"{current_line} {word}".strip()
-        text_bbox = draw.textbbox((0, 0), test_line, font=font)
-        text_width = text_bbox[2] - text_bbox[0]
-        if text_width <= max_width:
-            current_line = test_line
-        else:
-            lines.append(current_line)
-            current_line = word
-    lines.append(current_line)
-
-    total_text_height = sum(
-        [draw.textbbox((0, 0), line, font=font)[3] - draw.textbbox((0, 0), line, font=font)[1] for line in lines])
-    current_height = (image.height - total_text_height) / 2
-
-    for line in lines:
-        text_bbox = draw.textbbox((0, 0), line, font=font)
-        text_width = text_bbox[2] - text_bbox[0]
-        text_height = text_bbox[3] - text_bbox[1]
-        text_position = ((image.width - text_width) / 2, current_height)
-
-        shadow_offset = 2
-        draw.text((text_position[0] + shadow_offset, text_position[1] + shadow_offset), line, font=font, fill=shadow_color)
-        outline_range = 1
-        for x in range(-outline_range, outline_range + 1):
-            for y in range(-outline_range, outline_range + 1):
-                if x != 0 or y != 0:
-                    draw.text((text_position[0] + x, text_position[1] + y), line, font=font, fill=outline_color)
-        draw.text(text_position, line, font=font, fill=text_color)
-
-        current_height += text_height
-
-    return np.array(image)
-
-def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Justin'):
-    audio_clips = []
-    video_clips = []
-    audio_dir = 'static/audio'
-    if not os.path.exists(audio_dir):
-        os.makedirs(audio_dir)
-    for audio_file in os.listdir(audio_dir):
-        os.remove(os.path.join(audio_dir, audio_file))
-    for img_data, prompt in zip(images_data, prompts):
-        audio_filename = os.path.join(audio_dir, f"{prompt[:10]}_audio.mp3")
-        text_to_speech(prompt, audio_filename, voice_id)
-        speech_clip = AudioFileClip(audio_filename)
-
-        image = Image.open(img_data).convert('RGBA')
-        img_array = np.array(image)
-        img_with_text = text_to_image(img_array, prompt, font_size=48)
-
-        img_clip = ImageClip(img_with_text).set_duration(speech_clip.duration)
-
-        # Create a TextClip that displays text gradually using PIL
-        def text_generator(txt, duration, img_size):
-            try:
-                font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-                font = ImageFont.truetype(font_path, 24)
-            except IOError:
-                font = ImageFont.load_default()
-            clip_duration = duration / len(txt.split())
-            text_clips = []
-            for i, word in enumerate(txt.split()):
-                img_copy = Image.fromarray(img_with_text.copy())  # Ensure we're working with PIL.Image
-                draw = ImageDraw.Draw(img_copy)
-                draw.text((20, img_size[1] // 2), ' '.join(txt.split()[:i+1]), font=font, fill='white')
-                text_clip = ImageClip(np.array(img_copy)).set_duration(clip_duration)
-                text_clips.append(text_clip)
-            return concatenate_videoclips(text_clips)
-
-        txt_clip = text_generator(prompt, speech_clip.duration, img_clip.size)
-
-        video = CompositeVideoClip([img_clip, txt_clip.set_position('center')]).set_audio(speech_clip)
-        video_clips.append(video)
-        audio_clips.append(speech_clip)
-
-    if not video_clips:
-        logging.error("No video clips were created. Ensure that image data and prompts are valid.")
-        return
-
-    final_video = concatenate_videoclips(video_clips, method="compose")
-    background_music = AudioFileClip(audio_path).subclip(0, final_video.duration)
-    background_music = background_music.volumex(0.4)
-    final_audio = concatenate_audioclips(audio_clips)
-    final_audio = CompositeAudioClip([background_music, final_audio.set_duration(background_music.duration)])
-    final_video = final_video.set_audio(final_audio)
-    final_video.write_videofile(output_video, fps=fps, codec='libx264')
-
-    for audio_file in os.listdir(audio_dir):
-        os.remove(os.path.join(audio_dir, audio_file))
 
 @app.route('/create_video', methods=['GET'])
 def create_video():
@@ -259,20 +160,8 @@ def create_video():
         logging.error("No code provided for video creation.")
         return "No code provided", 400
     logging.info(f"Creating video for code: {code} with prompts: {prompts}")
-    response = supabase.table('images').select('image_blob').eq('code', code).execute()
-    if response.data:
-        images_data = []
-        for img in response.data:
-            image_blob = img.get('image_blob')
-            if image_blob:
-                try:
-                    images_data.append(BytesIO(base64.b64decode(image_blob)))
-                    logging.info(f"Image retrieved for code {code}")
-                except Exception as e:
-                    logging.error(f"Failed to decode image for code {code}: {e}")
-    else:
-        logging.error(f"No images found for code {code}.")
-        images_data = []
+
+    images_data = fetch_images(code)
     if not images_data:
         logging.error(f"No valid images found for code {code}.")
         return "No valid images found", 400
@@ -280,26 +169,16 @@ def create_video():
     output_video = 'static/videos/output_video.mp4'
     if not os.path.exists('static/videos'):
         os.makedirs('static/videos')
-    create_video_with_text(images_data, output_video, prompts, audio_path='static/music/relaxing-piano-201831.mp3',
-                           voice_id='Justin')
 
-    session['video_path'] = output_video
-    with open(output_video, 'rb') as video_file:
-        video_blob = video_file.read()
-    video_base64 = base64.b64encode(video_blob).decode('utf-8')
-    video_data = {
-        "filename": os.path.basename(output_video),
-        "video_blob": video_base64
-    }
-    try:
-        supabase.table('videos').insert(video_data).execute()
-        video_url = f"data:video/mp4;base64,{video_base64}"
-    except Exception as e:
-        logging.error(f"Error inserting video data into Supabase: {e}")
-        video_url = None
-    return render_template('video_result.html', video_url=video_url)
+    # Enqueue the task
+    job = q.enqueue(create_video_with_text, images_data, output_video, prompts, audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Justin')
+    return jsonify({"job_id": job.get_id()})
 
-
+@app.route('/check_status/<job_id>', methods=['GET'])
+def check_status(job_id):
+    from rq.job import Job
+    job = Job.fetch(job_id, connection=conn)
+    return jsonify({"job_id": job.get_id(), "status": job.get_status()})
 
 
 
