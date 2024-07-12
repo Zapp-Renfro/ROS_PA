@@ -103,23 +103,33 @@ def text_to_speech(text, output_filename, voice_id='Justin'):
     response = polly_client.synthesize_speech(
         Text=text,
         OutputFormat='mp3',
-        VoiceId=voice_id,
-        SpeechMarkTypes=['word']
+        VoiceId=voice_id
     )
 
     with open(output_filename, 'wb') as file:
         file.write(response['AudioStream'].read())
 
-    marks = []
-    if 'SpeechMarkTypes' in response:
-        marks_response = polly_client.synthesize_speech(
-            Text=text,
-            OutputFormat='json',
-            VoiceId=voice_id,
-            SpeechMarkTypes=['word']
-        )
-        marks = marks_response['AudioStream'].read().decode('utf-8').splitlines()
+    # Retourner le nom du fichier audio généré
+    return output_filename
+
+
+def get_speech_marks(text, voice_id='Justin'):
+    logging.debug(f"Using voice_id: {voice_id} for speech marks")
+    polly_client = boto3.Session(
+        aws_access_key_id=AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+        region_name=AWS_REGION
+    ).client('polly')
+    response = polly_client.synthesize_speech(
+        Text=text,
+        OutputFormat='json',
+        VoiceId=voice_id,
+        SpeechMarkTypes=['word']
+    )
+
+    marks = response['AudioStream'].read().decode('utf-8').splitlines()
     return marks
+
 
 
 
@@ -250,6 +260,7 @@ def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
     logging.debug("Exiting text_to_image function")
     return np.array(image)
 
+
 def parse_speech_marks(marks):
     word_timings = []
     for mark in marks:
@@ -263,7 +274,6 @@ def parse_speech_marks(marks):
     return word_timings
 
 
-
 def create_video_with_text(images_data, output_video, prompts, fps=1,
                            audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Justin'):
     audio_clips = []
@@ -275,7 +285,8 @@ def create_video_with_text(images_data, output_video, prompts, fps=1,
         os.remove(os.path.join(audio_dir, audio_file))
     for img_data, prompt in zip(images_data, prompts):
         audio_filename = os.path.join(audio_dir, f"{prompt[:10]}_audio.mp3")
-        marks = text_to_speech(prompt, audio_filename, voice_id)
+        text_to_speech(prompt, audio_filename, voice_id)
+        marks = get_speech_marks(prompt, voice_id)
         speech_clip = AudioFileClip(audio_filename)
         word_timings = parse_speech_marks(marks)
 
@@ -285,8 +296,8 @@ def create_video_with_text(images_data, output_video, prompts, fps=1,
         img_clips = []
         for timing in word_timings:
             word = timing['word']
-            start_time = timing['start_time'] / 1000.0  # Convert to seconds
-            end_time = timing['end_time'] / 1000.0  # Convert to seconds
+            start_time = timing['start_time'] / 1000.0  # Convertir en secondes
+            end_time = timing['end_time'] / 1000.0  # Convertir en secondes
             img_with_text = text_to_image(img_array, word, font_size=48)
             img_clip = ImageClip(img_with_text).set_duration(end_time - start_time).set_start(start_time)
             img_clips.append(img_clip)
