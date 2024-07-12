@@ -55,6 +55,7 @@ AWS_REGION = 'eu-west-1'
 mood = "bad"
 
 
+
 def text_to_speech(text, output_filename, voice_id='Justin'):
     logging.debug(f"Using voice_id: {voice_id}")
     polly_client = boto3.Session(
