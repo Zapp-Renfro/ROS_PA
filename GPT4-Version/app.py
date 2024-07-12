@@ -23,6 +23,7 @@ from requests.exceptions import HTTPError
 import tempfile
 
 
+
 JAMENDO_CLIENT_ID = "1fe12850"
 
 
@@ -140,6 +141,8 @@ def generate_images_from_prompts(prompts, code):
 
     return filenames
 
+from PIL import Image, ImageDraw, ImageFont
+
 def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
                   outline_color=(0, 0, 0), shadow_color=(50, 50, 50), max_width=None):
     logging.debug("Entering text_to_image function")
@@ -197,6 +200,64 @@ def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
 
     logging.debug("Exiting text_to_image function")
     return np.array(image)
+
+def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Justin'):
+    audio_clips = []
+    video_clips = []
+    audio_dir = 'static/audio'
+    if not os.path.exists(audio_dir):
+        os.makedirs(audio_dir)
+    for audio_file in os.listdir(audio_dir):
+        os.remove(os.path.join(audio_dir, audio_file))
+    for img_data, prompt in zip(images_data, prompts):
+        audio_filename = os.path.join(audio_dir, f"{prompt[:10]}_audio.mp3")
+        text_to_speech(prompt, audio_filename, voice_id)
+        speech_clip = AudioFileClip(audio_filename)
+
+        image = Image.open(img_data).convert('RGBA')
+        img_array = np.array(image)
+        img_with_text = text_to_image(img_array, prompt, font_size=48)
+
+        img_clip = ImageClip(img_with_text).set_duration(speech_clip.duration)
+
+        # Create a TextClip that displays text gradually
+        def text_generator(txt, duration):
+            txt_clip = TextClip(txt, fontsize=24, color='white', size=img_clip.size, font='DejaVuSans-Bold')
+            txt_clip = txt_clip.set_duration(duration).crossfadein(0.5).crossfadeout(0.5)
+            return txt_clip
+
+        txt_clips = []
+        words = prompt.split()
+        total_words = len(words)
+        duration_per_word = speech_clip.duration / total_words
+
+        current_time = 0
+        for word in words:
+            txt_clip = text_generator(word, duration_per_word).set_start(current_time)
+            txt_clips.append(txt_clip)
+            current_time += duration_per_word
+
+        txt_comp_clip = CompositeVideoClip([img_clip] + txt_clips)
+
+        video = txt_comp_clip.set_audio(speech_clip)
+        video_clips.append(video)
+        audio_clips.append(speech_clip)
+
+    if not video_clips:
+        logging.error("No video clips were created. Ensure that image data and prompts are valid.")
+        return
+
+    final_video = concatenate_videoclips(video_clips, method="compose")
+    background_music = AudioFileClip(audio_path).subclip(0, final_video.duration)
+    background_music = background_music.volumex(0.4)
+    final_audio = concatenate_audioclips(audio_clips)
+    final_audio = CompositeAudioClip([background_music, final_audio.set_duration(background_music.duration)])
+    final_video = final_video.set_audio(final_audio)
+    final_video.write_videofile(output_video, fps=fps, codec='libx264')
+
+    for audio_file in os.listdir(audio_dir):
+        os.remove(os.path.join(audio_dir, audio_file))
+
 
 
 def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Justin'):
