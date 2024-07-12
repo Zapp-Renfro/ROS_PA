@@ -55,43 +55,6 @@ AWS_REGION = 'eu-west-1'
 mood = "bad"
 
 
-def search_music_by_mood(mood):
-    url = "https://api.jamendo.com/v3.0/tracks"
-    params = {
-        "client_id": JAMENDO_CLIENT_ID,
-        "format": "json",
-        "limit": 10,
-        "tags": mood
-    }
-    response = requests.get(url, params=params)
-    if response.status_code != 200:
-        print("Error: ", response.status_code)
-        print(response.text)
-        return None
-    return response.json()
-
-
-def get_video_duration(video_path):
-    with VideoFileClip(video_path) as video:
-        return int(video.duration)
-
-
-def download_audio_preview(url):
-    response = requests.get(url)
-    if response.status_code == 200:
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
-        temp_file.write(response.content)
-        temp_file.close()
-        return temp_file.name
-    return None
-
-
-def upload_video_to_supabase(file_path, file_name):
-    with open(file_path, 'rb') as file:
-        res = supabase.storage().from_('videos').upload(file_name, file)
-    return res
-
-
 def text_to_speech(text, output_filename, voice_id='Justin'):
     logging.debug(f"Using voice_id: {voice_id}")
     polly_client = boto3.Session(
@@ -177,7 +140,7 @@ def generate_images_from_prompts(prompts, code):
 
     return filenames
 
-def text_to_image(img_array, text, duration, font_size=48, text_color=(255, 255, 255),
+def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
                   outline_color=(0, 0, 0), shadow_color=(50, 50, 50), max_width=None):
     logging.debug("Entering text_to_image function")
     image = Image.fromarray(img_array)
@@ -236,33 +199,28 @@ def text_to_image(img_array, text, duration, font_size=48, text_color=(255, 255,
     return np.array(image)
 
 
-
 def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Justin'):
     audio_clips = []
     video_clips = []
     audio_dir = 'static/audio'
     if not os.path.exists(audio_dir):
         os.makedirs(audio_dir)
-
     for audio_file in os.listdir(audio_dir):
         os.remove(os.path.join(audio_dir, audio_file))
-
     for img_data, prompt in zip(images_data, prompts):
         audio_filename = os.path.join(audio_dir, f"{prompt[:10]}_audio.mp3")
         text_to_speech(prompt, audio_filename, voice_id)
         speech_clip = AudioFileClip(audio_filename)
         image = Image.open(img_data).convert('RGBA')
         img_array = np.array(image)
-        img_with_text = text_to_image(img_array, prompt, speech_clip.duration, font_size=48)
+        img_with_text = text_to_image(img_array, prompt, font_size=48)
         img_clip = ImageClip(img_with_text).set_duration(speech_clip.duration)
         video = img_clip.set_audio(speech_clip)
         video_clips.append(video)
         audio_clips.append(speech_clip)
-
     if not video_clips:
         logging.error("No video clips were created. Ensure that image data and prompts are valid.")
         return
-
     final_video = concatenate_videoclips(video_clips, method="compose")
     background_music = AudioFileClip(audio_path).subclip(0, final_video.duration)
     background_music = background_music.volumex(0.4)
@@ -270,10 +228,8 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
     final_audio = CompositeAudioClip([background_music, final_audio.set_duration(background_music.duration)])
     final_video = final_video.set_audio(final_audio)
     final_video.write_videofile(output_video, fps=fps, codec='libx264')
-
     for audio_file in os.listdir(audio_dir):
         os.remove(os.path.join(audio_dir, audio_file))
-
 
 
 @app.route('/create_video', methods=['GET'])
@@ -323,7 +279,6 @@ def create_video():
         logging.error(f"Error inserting video data into Supabase: {e}")
         video_url = None
     return render_template('video_result.html', video_url=video_url)
-
 
 @app.route('/', methods=['GET'])
 def index():
@@ -552,166 +507,9 @@ def api_generate_images():
     return jsonify({'job_id': job.get_id()}), 202
 
 
-@app.route('/music_choice', methods=['GET', 'POST'])
-def music_choice():
-    mood_tracks = []
-    search_tracks = []
-    error = None
-    try:
-        # Définir une humeur par défaut
-        mood = 'sad'  # Remplacez 'sad' par une méthode pour récupérer la véritable humeur si nécessaire
-        app.logger.info(f'Retrieving tracks for mood: {mood}')
-        # Récupérer les pistes pour l'humeur "sad"
-        mood_result = search_music_by_mood(mood)
-        if mood_result and 'results' in mood_result:
-            mood_tracks = mood_result['results']
-            app.logger.info(f'Found {len(mood_tracks)} tracks for mood: {mood}')
-        else:
-            error = "Aucune piste trouvée pour l'humeur donnée."
-            app.logger.error(error)
-        # Si une recherche par mot-clé est effectuée
-        if request.method == 'POST':
-            query = request.form.get('query')
-            app.logger.info(f'Search query: {query}')
-            if query:
-                search_result = search_music_by_mood(query)
-                if search_result:
-                    search_tracks = search_result['results']
-                    app.logger.info(f'Found {len(search_tracks)} tracks for search query: {query}')
-                else:
-                    error = "Aucune piste trouvée pour la recherche."
-                    app.logger.error(error)
-    except Exception as e:
-        app.logger.exception(f"Error in /music_choice route: {e}")
-        error = "Une erreur est survenue. Veuillez réessayer plus tard."
-    return render_template('music_choice.html', mood=mood, mood_tracks=mood_tracks, search_tracks=search_tracks, error=error)
 
 
 
-@app.route('/select_track', methods=['POST'])
-def select_track():
-    track_id = request.form.get('track_id')
-    track_name = request.form.get('track_name')
-    artist_name = request.form.get('artist_name')
-    preview_url = request.form.get('preview_url')
-
-    # Path to the existing video file
-    video_path = session.get('video_path')
-    if not os.path.exists(video_path):
-        return "Fichier vidéo non trouvé.", 404
-    # Get the duration of the existing video
-    video_duration = get_video_duration(video_path)
-    return render_template('play.html', track_id=track_id, track_name=track_name, artist_name=artist_name,
-                           preview_url=preview_url, video_duration=video_duration)
-
-@app.route('/final_video', methods=['POST'])
-def final_video():
-    track_id = request.form.get('track_id')
-    preview_url = request.form.get('preview_url')
-    music_start_time = int(request.form.get('start_time'))
-    music_end_time = int(request.form.get('end_time'))
-
-    video_path = session.get('video_path')
-    if not os.path.exists(video_path):
-        return "Fichier vidéo non trouvé.", 404
-
-    video_duration = get_video_duration(video_path)
-    music_segment_duration = music_end_time - music_start_time
-
-    if music_segment_duration > video_duration:
-        return "La durée de la sélection de la musique dépasse la durée de la vidéo.", 400
-
-    if music_end_time <= music_start_time:
-        return "Temps de début ou de fin invalide.", 400
-
-    audio_path = download_audio_preview(preview_url)
-    if not audio_path:
-        return "Aperçu audio non trouvé.", 404
-
-    generated_id = session.get('generated_id')
-    if not generated_id:
-        return "ID du texte généré non trouvé dans la session.", 400
-
-    try:
-        response = supabase.table('prompts').select('response').eq('id', generated_id).execute()
-        if response.data:
-            generated_text = response.data[0]['response']
-        else:
-            return "Aucun texte généré trouvé.", 404
-    except Exception as e:
-        logging.error(f"Error fetching generated text from Supabase: {e}")
-        return "Erreur lors de la récupération du texte généré.", 500
-
-    voice_audio_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
-    try:
-        text_to_speech(generated_text, voice_audio_path, voice_id='Justin')
-    except Exception as e:
-        logging.error(f"Error generating speech from text: {e}")
-        return "Erreur lors de la génération de la voix à partir du texte.", 500
-
-    output_video_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4").name
-    audio_clip = None
-    voice_clip = None
-    video_clip = None
-    try:
-        video_clip = VideoFileClip(video_path)
-        audio_clip = AudioFileClip(audio_path).subclip(music_start_time, music_end_time)
-        voice_clip = AudioFileClip(voice_audio_path)
-
-        if video_clip.duration < voice_clip.duration:
-            voice_clip = voice_clip.subclip(0, video_clip.duration)
-
-        final_audio = CompositeAudioClip([audio_clip.volumex(0.4), voice_clip.set_duration(video_clip.duration)])
-        video_clip = video_clip.set_audio(final_audio)
-        video_clip.write_videofile(output_video_path, codec="libx264", fps=24)
-    finally:
-        if video_clip:
-            video_clip.close()
-        if audio_clip:
-            audio_clip.close()
-        if voice_clip:
-            voice_clip.close()
-        os.remove(audio_path)
-        os.remove(voice_audio_path)
-
-    with open(output_video_path, 'rb') as video_file:
-        video_blob = video_file.read()
-    video_base64 = base64.b64encode(video_blob).decode('utf-8')
-    video_data = {
-        "filename": os.path.basename(output_video_path),
-        "video_blob": video_base64
-    }
-
-    try:
-        response = supabase.table('videos').insert(video_data).execute()
-        video_id = response.data[0]['id']  # Assume the ID is returned
-        session['new_video_id'] = video_id  # Store the ID in the session instead of the entire video URL
-    except Exception as e:
-        logging.error(f"Error inserting video data into Supabase: {e}")
-        return "Erreur lors de l'insertion des données vidéo dans Supabase.", 500
-
-    os.remove(output_video_path)
-
-    return redirect(url_for('show_video'))
-
-@app.route('/show_video')
-def show_video():
-    video_id = session.get('new_video_id')
-    if not video_id:
-        return "Vidéo non trouvée.", 404
-
-    try:
-        response = supabase.table('videos').select('video_blob').eq('id', video_id).execute()
-        if response.data:
-            video_blob = response.data[0]['video_blob']
-            video_url = f"data:video/mp4;base64,{video_blob}"
-        else:
-            return "Vidéo non trouvée.", 404
-    except Exception as e:
-        logging.error(f"Error fetching video data from Supabase: {e}")
-        return "Erreur lors de la récupération des données vidéo.", 500
-
-    return render_template('show_video.html', video_path=video_url)
 
 if __name__ == "__main__":
     app.run(debug=True)
