@@ -337,7 +337,7 @@ def use_text():
             return jsonify({"error": str(e)}), 400
 
         # Directement utiliser le texte fourni
-        return render_template('result.html', response=prompt, image_prompt=prompt)
+        return render_template('result.html', response=prompt, image_prompt=prompt, model_name="none")
     else:
         return jsonify({"error": "Prompt is required"}), 400
 
@@ -381,7 +381,7 @@ def generate_text():
         except Exception as e:
             logging.error(f"Error inserting data into prompts: {str(e)}")
             return jsonify({"error": str(e)}), 400
-        return render_template('result.html', response=generated_text, image_prompt=generated_text)
+        return render_template('result.html', response=generated_text, image_prompt=generated_text, model_url=model_api)
     else:
         return render_template('index.html')
 
@@ -440,10 +440,28 @@ def login():
 
 def get_model():
     response = supabase.table('models').select('*').order("likes", desc=True).execute()
-    print(response.data)
     if response.data:
         return response.data
     return []
+
+
+@app.route('/add_like', methods=['GET', 'POST'])
+def add_like():
+    model_url = request.form['model_url']
+    resp = request.form['response']
+    image_prompt = request.form['image_prompt']
+    try:
+        response = supabase.table('models').select('*').eq('url', model_url).single().execute()
+        likes = response.data['likes']
+        likes += 1
+        update_response = supabase.table('models').update({'likes': likes}).eq('url', model_url).execute()
+        logging.debug(f"-------------- Column likes incremented successfully: {update_response}")
+        # return jsonify({'message': 'Column likes incremented successfully', 'new_value': likes}), 200
+        return render_template('result.html', response=resp, image_prompt=image_prompt, model_url=model_url)
+    except Exception as e:
+        logging.error(f"Error updating model likes: {str(e)}")
+        return jsonify({"error": str(e)}), 400
+
 
 @app.route('/history', methods=['GET'])
 def get_history():
