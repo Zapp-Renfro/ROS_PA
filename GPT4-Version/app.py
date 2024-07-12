@@ -215,41 +215,48 @@ def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
 
 @app.route('/create_video', methods=['GET'])
 def create_video():
-    prompts = request.args.getlist('prompts')
-    code = request.args.get('code')
-    if not code:
-        logging.error("No code provided for video creation.")
-        return "No code provided", 400
-    logging.info(f"Creating video for code: {code} with prompts: {prompts}")
-    response = supabase.table('images').select('image_blob').eq('code', code).execute()
-    if response.data:
-        images_data = []
-        for img in response.data:
-            image_blob = img.get('image_blob')
-            if image_blob:
-                try:
-                    images_data.append(BytesIO(base64.b64decode(image_blob)))
-                    logging.info(f"Image retrieved for code {code}")
-                except Exception as e:
-                    logging.error(f"Failed to decode image for code {code}: {e}")
-    else:
-        logging.error(f"No images found for code {code}.")
-        images_data = []
-    if not images_data:
-        logging.error(f"No valid images found for code {code}.")
-        return "No valid images found", 400
+    try:
+        prompts = request.args.getlist('prompts')
+        code = request.args.get('code')
+        if not code:
+            logging.error("No code provided for video creation.")
+            return "No code provided", 400
 
-    output_video = 'static/videos/output_video.mp4'
-    if not os.path.exists('static/videos'):
-        os.makedirs('static/videos')
+        logging.info(f"Creating video for code: {code} with prompts: {prompts}")
 
-    # Enqueue the video creation task
-    job = q.enqueue_call(
-        func=create_video_with_text, args=(images_data, output_video, prompts, 1, 'static/music/relaxing-piano-201831.mp3', 'Justin'), result_ttl=5000
-    )
+        # Fetch images from the database
+        response = supabase.table('images').select('image_blob').eq('code', code).execute()
+        if response.data:
+            images_data = []
+            for img in response.data:
+                image_blob = img.get('image_blob')
+                if image_blob:
+                    try:
+                        images_data.append(BytesIO(base64.b64decode(image_blob)))
+                        logging.info(f"Image retrieved for code {code}")
+                    except Exception as e:
+                        logging.error(f"Failed to decode image for code {code}: {e}")
+        else:
+            logging.error(f"No images found for code {code}.")
+            return "No images found", 404
 
-    return jsonify({"job_id": job.get_id()}), 202
+        if not images_data:
+            logging.error(f"No valid images found for code {code}.")
+            return "No valid images found", 400
 
+        output_video = 'static/videos/output_video.mp4'
+        if not os.path.exists('static/videos'):
+            os.makedirs('static/videos')
+
+        # Enqueue the video creation task
+        job = q.enqueue_call(
+            func=create_video_with_text, args=(images_data, output_video, prompts, 'static/music/relaxing-piano-201831.mp3', 'Justin'), result_ttl=5000
+        )
+
+        return jsonify({"job_id": job.get_id()}), 202
+    except Exception as e:
+        logging.error(f"An error occurred during video creation: {e}")
+        return "An internal error occurred", 500
 @app.route('/job_status/<job_id>', methods=['GET'])
 def job_status(job_id):
     job = Job.fetch(job_id, connection=conn)
