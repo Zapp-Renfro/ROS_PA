@@ -14,6 +14,8 @@
             <input type="hidden" name="text" value="{{ image_prompt|safe }}" />
             <button type="submit">Générer Images</button>
         </form>
+
+        {% if model_url %}
         <form action="/add_like" method="post" id="incrementForm">
             <input type="hidden" name="model_url" id="model_url" value="{{ model_url }}" />
             <input type="hidden" name="response" id="response" value="{{ response }}" />
@@ -21,14 +23,16 @@
             <button type="submit">Je suis satisfait des résultats de ce modèle.</button>
             <output id="incrementOuput"></output>
         </form>
+        {% endif %}
+
         <a href="/">Retour</a>
     </div>
-<script>
+    <script>
         document.getElementById('incrementForm').addEventListener('submit', function(event) {
             // event.preventDefault();
             var modelId = document.getElementById('model_url').value;
             document.getElementById('incrementOuput').innerHTML = "Like envoyé, les modèles proposés sont mis à jour."
         });
-</script>
+    </script>
 </body>
 </html>
