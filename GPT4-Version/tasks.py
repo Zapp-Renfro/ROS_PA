@@ -1,6 +1,8 @@
 import os
 import base64
 from io import BytesIO
+
+import boto3
 from moviepy.editor import *
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
@@ -15,6 +17,27 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
+
+# Configuration AWS
+AWS_ACCESS_KEY_ID = 'AKIAVRUVT3YMY5C23CNL'
+AWS_SECRET_ACCESS_KEY = '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'
+AWS_REGION = 'eu-west-1'
+
+def text_to_speech(text, output_filename, voice_id='Justin'):
+    logging.debug(f"Using voice_id: {voice_id}")
+    polly_client = boto3.Session(
+        aws_access_key_id=AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+        region_name=AWS_REGION
+    ).client('polly')
+    response = polly_client.synthesize_speech(
+        Text=text,
+        OutputFormat='mp3',
+        VoiceId=voice_id
+    )
+
+    with open(output_filename, 'wb') as file:
+        file.write(response['AudioStream'].read())
 
 def text_to_image(image_array, text, font_size=48):
     image = Image.fromarray(image_array)

@@ -65,21 +65,7 @@ from tasks import create_video_with_text, fetch_images
 
 
 
-def text_to_speech(text, output_filename, voice_id='Justin'):
-    logging.debug(f"Using voice_id: {voice_id}")
-    polly_client = boto3.Session(
-        aws_access_key_id=AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-        region_name=AWS_REGION
-    ).client('polly')
-    response = polly_client.synthesize_speech(
-        Text=text,
-        OutputFormat='mp3',
-        VoiceId=voice_id
-    )
 
-    with open(output_filename, 'wb') as file:
-        file.write(response['AudioStream'].read())
 
 def format_response(chat_history):
     formatted_text = ""
