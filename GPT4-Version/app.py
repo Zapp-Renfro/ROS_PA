@@ -255,7 +255,8 @@ def create_text_frames(text, duration, fps, image_size, font_path, font_size=48,
     for i in range(num_frames):
         img = Image.new("RGBA", image_size, (0, 0, 0, 0))
         draw = ImageDraw.Draw(img)
-        text_width, text_height = draw.textsize(text, font=font)
+        text_bbox = draw.textbbox((0, 0), text, font=font)
+        text_width, text_height = text_bbox[2] - text_bbox[0], text_bbox[3] - text_bbox[1]
         position = ((image_size[0] - text_width) // 2, (image_size[1] - text_height) // 2)
 
         alpha = 255
