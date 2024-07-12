@@ -41,7 +41,6 @@ app.secret_key = 'votre_cle_secrete'
 # Configuration de logging
 logging.basicConfig(level=logging.DEBUG)
 
-
 # Initialisation de Supabase
 SUPABASE_URL = 'https://lpfjfbvhhckrnzdfezgd.supabase.co'
 SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxwZmpmYnZoaGNrcm56ZGZlemdkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTY2NTYyMzEsImV4cCI6MjAzMjIzMjIzMX0.xXvve7bQ0lSz38CT9s9iQF3VlPo-vKbCy5Vw3Zhl84c'
@@ -212,16 +211,40 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
         audio_filename = os.path.join(audio_dir, f"{prompt[:10]}_audio.mp3")
         text_to_speech(prompt, audio_filename, voice_id)
         speech_clip = AudioFileClip(audio_filename)
+
         image = Image.open(img_data).convert('RGBA')
         img_array = np.array(image)
         img_with_text = text_to_image(img_array, prompt, font_size=48)
+
         img_clip = ImageClip(img_with_text).set_duration(speech_clip.duration)
-        video = img_clip.set_audio(speech_clip)
+
+        # Create a TextClip that displays text gradually
+        def text_generator(txt, duration):
+            txt_clip = TextClip(txt, fontsize=24, color='white', size=img_clip.size, font='DejaVuSans-Bold')
+            txt_clip = txt_clip.set_duration(duration).crossfadein(0.5).crossfadeout(0.5)
+            return txt_clip
+
+        txt_clips = []
+        words = prompt.split()
+        total_words = len(words)
+        duration_per_word = speech_clip.duration / total_words
+
+        current_time = 0
+        for word in words:
+            txt_clip = text_generator(word, duration_per_word).set_start(current_time)
+            txt_clips.append(txt_clip)
+            current_time += duration_per_word
+
+        txt_comp_clip = CompositeVideoClip([img_clip] + txt_clips)
+
+        video = txt_comp_clip.set_audio(speech_clip)
         video_clips.append(video)
         audio_clips.append(speech_clip)
+
     if not video_clips:
         logging.error("No video clips were created. Ensure that image data and prompts are valid.")
         return
+
     final_video = concatenate_videoclips(video_clips, method="compose")
     background_music = AudioFileClip(audio_path).subclip(0, final_video.duration)
     background_music = background_music.volumex(0.4)
@@ -229,8 +252,10 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
     final_audio = CompositeAudioClip([background_music, final_audio.set_duration(background_music.duration)])
     final_video = final_video.set_audio(final_audio)
     final_video.write_videofile(output_video, fps=fps, codec='libx264')
+
     for audio_file in os.listdir(audio_dir):
         os.remove(os.path.join(audio_dir, audio_file))
+
 
 
 @app.route('/create_video', methods=['GET'])
