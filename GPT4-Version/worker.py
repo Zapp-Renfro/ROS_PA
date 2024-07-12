@@ -1,6 +1,6 @@
 import os
 import redis
-from rq import Worker, Queue
+from rq import Worker, Queue, Connection
 import logging
 
 # Configure logging

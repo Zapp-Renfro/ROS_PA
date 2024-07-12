@@ -321,6 +321,19 @@ def create_video_with_text(images_data, output_video, prompts, fps=1,
     for audio_file in os.listdir(audio_dir):
         os.remove(os.path.join(audio_dir, audio_file))
 
+def create_video_task(images_data, prompts, code):
+    output_video = f'static/videos/output_video_{code}.mp4'
+    create_video_with_text(images_data, output_video, prompts, audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Justin')
+    # Stocker la vidéo dans Supabase ou tout autre stockage de votre choix.
+    with open(output_video, 'rb') as video_file:
+        video_blob = video_file.read()
+    video_base64 = base64.b64encode(video_blob).decode('utf-8')
+    video_data = {
+        "filename": os.path.basename(output_video),
+        "video_blob": video_base64
+    }
+    supabase.table('videos').insert(video_data).execute()
+    return output_video
 
 @app.route('/create_video', methods=['GET'])
 def create_video():
@@ -348,27 +361,10 @@ def create_video():
         logging.error(f"No valid images found for code {code}.")
         return "No valid images found", 400
 
-    output_video = 'static/videos/output_video.mp4'
-    if not os.path.exists('static/videos'):
-        os.makedirs('static/videos')
-    create_video_with_text(images_data, output_video, prompts, audio_path='static/music/relaxing-piano-201831.mp3',
-                           voice_id='Justin')
+    # Enregistrer la tâche pour qu'elle soit exécutée en arrière-plan
+    job = q.enqueue(create_video_task, images_data, prompts, code)
 
-    session['video_path'] = output_video
-    with open(output_video, 'rb') as video_file:
-        video_blob = video_file.read()
-    video_base64 = base64.b64encode(video_blob).decode('utf-8')
-    video_data = {
-        "filename": os.path.basename(output_video),
-        "video_blob": video_base64
-    }
-    try:
-        supabase.table('videos').insert(video_data).execute()
-        video_url = f"data:video/mp4;base64,{video_base64}"
-    except Exception as e:
-        logging.error(f"Error inserting video data into Supabase: {e}")
-        video_url = None
-    return render_template('video_result.html', video_url=video_url)
+    return jsonify({"job_id": job.get_id()}), 202
 
 @app.route('/', methods=['GET'])
 def index():
