@@ -146,20 +146,16 @@ def generate_images_from_prompts(prompts, code):
 
 def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
                   outline_color=(0, 0, 0), shadow_color=(50, 50, 50), max_width=None):
-    logging.debug("Entering text_to_image function")
     image = Image.fromarray(img_array)
     draw = ImageDraw.Draw(image)
     try:
         font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
         font = ImageFont.truetype(font_path, font_size)
-        logging.debug(f"Font loaded: {font_path} with size {font_size}")
     except IOError:
         font = ImageFont.load_default()
-        logging.warning("Font not found, using default font")
 
     if max_width is None:
         max_width = image.width - 40
-    logging.debug(f"Max width for text: {max_width}")
 
     lines = []
     words = text.split()
@@ -174,7 +170,6 @@ def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
             lines.append(current_line)
             current_line = word
     lines.append(current_line)
-    logging.debug(f"Text split into lines: {lines}")
 
     total_text_height = sum(
         [draw.textbbox((0, 0), line, font=font)[3] - draw.textbbox((0, 0), line, font=font)[1] for line in lines])
@@ -185,11 +180,9 @@ def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
         text_width = text_bbox[2] - text_bbox[0]
         text_height = text_bbox[3] - text_bbox[1]
         text_position = ((image.width - text_width) / 2, current_height)
-        logging.debug(f"Drawing text: {line} at position {text_position}")
 
         shadow_offset = 2
-        draw.text((text_position[0] + shadow_offset, text_position[1] + shadow_offset), line, font=font,
-                  fill=shadow_color)
+        draw.text((text_position[0] + shadow_offset, text_position[1] + shadow_offset), line, font=font, fill=shadow_color)
         outline_range = 1
         for x in range(-outline_range, outline_range + 1):
             for y in range(-outline_range, outline_range + 1):
@@ -199,7 +192,6 @@ def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
 
         current_height += text_height
 
-    logging.debug("Exiting text_to_image function")
     return np.array(image)
 
 def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Justin'):
@@ -226,7 +218,7 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
             clip_duration = duration / len(txt.split())
             text_clips = []
             for i, word in enumerate(txt.split()):
-                img_copy = img_with_text.copy()
+                img_copy = Image.fromarray(img_with_text.copy())  # Ensure we're working with PIL.Image
                 draw = ImageDraw.Draw(img_copy)
                 draw.text((20, img_size[1] // 2), ' '.join(txt.split()[:i+1]), font=font, fill=text_color)
                 text_clip = ImageClip(np.array(img_copy)).set_duration(clip_duration)
