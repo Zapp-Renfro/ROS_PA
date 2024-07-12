@@ -287,6 +287,7 @@ def create_video():
 @app.route('/', methods=['GET'])
 def index():
     return render_template('index.html')
+
 @app.route('/use_text', methods=['POST'])
 def use_text():
     prompt = request.form.get('prompt2')
@@ -306,6 +307,31 @@ def use_text():
         return jsonify({"error": "Prompt is required"}), 400
 
 
+def get_model():
+    response = supabase.table('models').select('*').order("likes", desc=True).execute()
+    if response.data:
+        return response.data
+    return []
+
+
+@app.route('/add_like', methods=['GET', 'POST'])
+def add_like():
+    model_url = request.form['model_url']
+    resp = request.form['response']
+    image_prompt = request.form['image_prompt']
+    try:
+        response = supabase.table('models').select('*').eq('url', model_url).single().execute()
+        likes = response.data['likes']
+        likes += 1
+        update_response = supabase.table('models').update({'likes': likes}).eq('url', model_url).execute()
+        logging.debug(f"-------------- Column likes incremented successfully: {update_response}")
+        # return jsonify({'message': 'Column likes incremented successfully', 'new_value': likes}), 200
+        return render_template('result.html', response=resp, image_prompt=image_prompt, model_url=model_url)
+    except Exception as e:
+        logging.error(f"Error updating model likes: {str(e)}")
+        return jsonify({"error": str(e)}), 400
+
+
 @app.route('/generate_text', methods=['POST'])
 def generate_text():
     if 'user_email' not in session:
@@ -314,13 +340,19 @@ def generate_text():
 
     prompt_start = request.form['prompt_start']
     prompt = request.form['prompt']
+
     full_prompt = f"{prompt_start} {prompt}"
     max_length = 1000  # Maximum number of characters
     min_length = 800  # Minimum number of characters
 
-    API_URL_TEXT = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct"
+    # API_URL_TEXT = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct"
     API_TOKEN = "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"
     headers = {"Authorization": f"Bearer {API_TOKEN}"}
+    model_api = request.form['model_api']
+    default = "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1"
+    prompt_size = len(prompt)
+    # Appel à l'API de Hugging Face avec le modèle gpt-neo-2.7B
+    API_URL_TEXT = model_api if model_api else default
 
     # Utiliser la fonction generate de Hugging Face pour définir les paramètres de génération
     data = {
@@ -389,7 +421,9 @@ def generate_text():
         logging.error(f"Error inserting data into prompts: {str(e)}")
         return jsonify({"error": str(e)}), 400
 
-    return render_template('result.html', response=cleaned_text, image_prompt=cleaned_text)
+    return render_template('result.html', response=cleaned_text, image_prompt=cleaned_text, model_url=model_api)
+
+
 
 
 @app.route('/logout')
