@@ -21,8 +21,9 @@ import logging
 import time
 from requests.exceptions import HTTPError
 import tempfile
+from moviepy.config import change_settings
 
-
+change_settings({"IMAGEMAGICK_BINARY": "/usr/bin/convert"})
 
 JAMENDO_CLIENT_ID = "1fe12850"
 
