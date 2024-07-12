@@ -286,7 +286,8 @@ def create_video():
     return render_template('video_result.html', video_url=video_url)
 @app.route('/', methods=['GET'])
 def index():
-    return render_template('index.html')
+    models = get_model()
+    return render_template('index.html', models=models)
 
 @app.route('/use_text', methods=['POST'])
 def use_text():
