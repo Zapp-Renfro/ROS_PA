@@ -1,18 +1,18 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Vidéo Générée</title>
+    <title>Video result</title>
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='video_result.css') }}">
 </head>
 <body>
     <div class="container">
-        <h1>Vidéo Générée</h1>
+        <h1>Video result</h1>
         <video width="640" height="480" controls>
             <source src="{{ video_url }}" type="video/mp4">
-            Votre navigateur ne supporte pas la balise vidéo.
+            Your browser doesn't support this video element.
         </video>
         <form action="{{ url_for('music_choice') }}">
-            <button type="submit" class="btn">Choisir une autre musique</button>
+            <button type="submit" class="btn">Choose background music</button>
         </form>
     </div>
 </body>
