@@ -161,7 +161,7 @@ def generate_images_from_prompts(prompts, code):
                 logging.error(f"An error occurred: {err}")
                 break
     return filenames
-def text_to_image(img_array, text, font_size=36, text_color=(255, 255, 255),
+def text_to_image(img_array, text, font_size=28, text_color=(255, 255, 255),
                   outline_color=(0, 0, 0), shadow_color=(50, 50, 50), max_width=None):
     logging.debug("Entering text_to_image function")
     image = Image.fromarray(img_array)
@@ -227,7 +227,7 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
         speech_clip = AudioFileClip(audio_filename)
         image = Image.open(img_data).convert('RGBA')
         img_array = np.array(image)
-        img_with_text = text_to_image(img_array, prompt, font_size=36)
+        img_with_text = text_to_image(img_array, prompt, font_size=28)
         img_clip = ImageClip(img_with_text).set_duration(speech_clip.duration)
         video = img_clip.set_audio(speech_clip)
         video_clips.append(video)
