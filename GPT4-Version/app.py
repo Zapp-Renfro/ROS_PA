@@ -235,6 +235,9 @@ def text_to_image(img_array, text, font_size=28, text_color=(255, 255, 255),
     logging.debug("Exiting text_to_image function")
     return np.array(image)
 
+def crossfade_transition(clip1, clip2, duration=1):
+    return concatenate_videoclips([clip1.crossfadeout(duration), clip2.crossfadein(duration)], method="compose")
+
 
 def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Justin'):
     audio_clips = []
@@ -255,10 +258,20 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
         video = img_clip.set_audio(speech_clip)
         video_clips.append(video)
         audio_clips.append(speech_clip)
+
     if not video_clips:
         logging.error("No video clips were created. Ensure that image data and prompts are valid.")
         return
-    final_video = concatenate_videoclips(video_clips, method="compose")
+
+    # Apply transitions between clips
+    final_video_clips = []
+    for i in range(len(video_clips) - 1):
+        final_video_clips.append(video_clips[i])
+        final_video_clips.append(crossfade_transition(video_clips[i], video_clips[i + 1], duration=1))
+
+    final_video_clips.append(video_clips[-1])
+    final_video = concatenate_videoclips(final_video_clips, method="compose")
+
     background_music = AudioFileClip(audio_path).subclip(0, final_video.duration)
     background_music = background_music.volumex(0.4)
     final_audio = concatenate_audioclips(audio_clips)
