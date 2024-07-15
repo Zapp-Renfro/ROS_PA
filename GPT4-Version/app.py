@@ -1,5 +1,5 @@
 import boto3
-from flask import Flask, request, render_template, jsonify, session, url_for, redirect, flash
+from flask import Flask, request, render_template, jsonify, session, url_for, redirect, flash , get_flashed_messages
 from datetime import datetime
 import os
 from moviepy.editor import ImageClip, TextClip, CompositeVideoClip, concatenate_videoclips, AudioFileClip, \
@@ -469,7 +469,9 @@ def logout():
     session.pop('user_id', None)
     session.pop('user_email', None)
     flash("Déconnexion réussie.", "success")
+    messages = get_flashed_messages(with_categories=True)  # Consomme immédiatement les messages flash
     return redirect(url_for('index'))
+
 
 
 @app.route('/signup', methods=['GET', 'POST'])
@@ -493,7 +495,6 @@ def signup():
             return redirect(url_for('signup'))
     return render_template('signup.html')
 
-
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -507,6 +508,7 @@ def login():
                     session['user_id'] = user['id']
                     session['user_email'] = user['email']
                     flash("Connexion réussie.", "success")
+                    messages = get_flashed_messages(with_categories=True)  # Consomme immédiatement les messages flash
                     return redirect(url_for('index'))
                 else:
                     flash("Mot de passe incorrect.", "error")
