@@ -70,6 +70,7 @@ def search_music_by_mood(mood):
 def get_video_duration(video_path):
     with VideoFileClip(video_path) as video:
         return int(video.duration)
+
 def download_audio_preview(url):
     response = requests.get(url)
     if response.status_code == 200:
@@ -78,10 +79,12 @@ def download_audio_preview(url):
         temp_file.close()
         return temp_file.name
     return None
+
 def upload_video_to_supabase(file_path, file_name):
     with open(file_path, 'rb') as file:
         res = supabase.storage().from_('videos').upload(file_name, file)
     return res
+
 def text_to_speech(text, output_filename, voice_id='Justin'):
     logging.debug(f"Using voice_id: {voice_id}")
     polly_client = boto3.Session(
@@ -104,6 +107,7 @@ def format_response(chat_history):
         elif entry['role'] == 'assistant':
             formatted_text += f"<b>Réponse:</b> {entry['content']}<br><br>"
     return formatted_text
+
 def generate_images_from_prompts(prompts, code):
     filenames = []
     max_retries = 5
@@ -157,7 +161,7 @@ def generate_images_from_prompts(prompts, code):
                 logging.error(f"An error occurred: {err}")
                 break
     return filenames
-def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
+def text_to_image(img_array, text, font_size=36, text_color=(255, 255, 255),
                   outline_color=(0, 0, 0), shadow_color=(50, 50, 50), max_width=None):
     logging.debug("Entering text_to_image function")
     image = Image.fromarray(img_array)
@@ -207,6 +211,8 @@ def text_to_image(img_array, text, font_size=48, text_color=(255, 255, 255),
         current_height += text_height
     logging.debug("Exiting text_to_image function")
     return np.array(image)
+
+
 def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Justin'):
     audio_clips = []
     video_clips = []
@@ -284,6 +290,7 @@ def create_video():
         logging.error(f"Error inserting video data into Supabase: {e}")
         video_url = None
     return render_template('video_result.html', video_url=video_url)
+
 @app.route('/', methods=['GET'])
 def index():
     models = get_model()
@@ -381,6 +388,12 @@ def generate_text():
 
     # Fonction pour nettoyer et ajuster le texte généré
     def clean_generated_text(text):
+        # Supprimer tout ce qui précède la première lettre majuscule
+        for i, char in enumerate(text):
+            if char.isupper():
+                text = text[i:]
+                break
+
         # Supprimer la partie du prompt initial si elle est répétée dans le texte généré
         if text.startswith(full_prompt):
             text = text[len(full_prompt):].strip()
