@@ -251,21 +251,6 @@ def zoom_in_effect(clip, zoom_factor=1.1, duration=1):
     return clip.resize(lambda t: 1 + (zoom_factor - 1) * (t / duration)).set_duration(duration)
 
 
-def fade_transition(clip1, clip2, duration=0.5):
-    """
-    Creates a fade transition between two clips.
-
-    Parameters:
-    - clip1: the first video clip.
-    - clip2: the second video clip.
-    - duration: duration of the fade transition.
-
-    Returns:
-    - a concatenated video clip with a fade transition.
-    """
-    return concatenate_videoclips([clip1.crossfadeout(duration), clip2.crossfadein(duration)], method="compose")
-
-
 def create_video_with_text(images_data, output_video, prompts, fps=1,
                            audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Justin'):
     audio_clips = []
@@ -283,7 +268,7 @@ def create_video_with_text(images_data, output_video, prompts, fps=1,
         img_array = np.array(image)
         img_with_text = text_to_image(img_array, prompt, font_size=28)
         img_clip = ImageClip(img_with_text).set_duration(speech_clip.duration)
-        img_clip = zoom_in_effect(img_clip, zoom_factor=1.1, duration=speech_clip.duration)
+        img_clip = img_clip.resize(lambda t: 1 + (0.1 * t / speech_clip.duration)).set_duration(speech_clip.duration)
         video = img_clip.set_audio(speech_clip)
         video_clips.append(video)
         audio_clips.append(speech_clip)
@@ -295,8 +280,10 @@ def create_video_with_text(images_data, output_video, prompts, fps=1,
     # Add transitions between clips
     final_clips = [video_clips[0]]
     for i in range(1, len(video_clips)):
-        transition = fade_transition(video_clips[i - 1], video_clips[i], duration=0.5)
-        final_clips.append(transition)
+        previous_clip = video_clips[i - 1].crossfadeout(0.5)
+        next_clip = video_clips[i].crossfadein(0.5).set_start(previous_clip.end)
+        final_clips.append(previous_clip)
+        final_clips.append(next_clip)
 
     final_video = concatenate_videoclips(final_clips, method="compose")
     background_music = AudioFileClip(audio_path).subclip(0, final_video.duration)
