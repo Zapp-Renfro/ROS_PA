@@ -227,7 +227,7 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
         speech_clip = AudioFileClip(audio_filename)
         image = Image.open(img_data).convert('RGBA')
         img_array = np.array(image)
-        img_with_text = text_to_image(img_array, prompt, font_size=48)
+        img_with_text = text_to_image(img_array, prompt, font_size=36)
         img_clip = ImageClip(img_with_text).set_duration(speech_clip.duration)
         video = img_clip.set_audio(speech_clip)
         video_clips.append(video)
