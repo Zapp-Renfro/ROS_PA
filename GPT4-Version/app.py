@@ -235,6 +235,15 @@ def text_to_image(img_array, text, font_size=28, text_color=(255, 255, 255),
     logging.debug("Exiting text_to_image function")
     return np.array(image)
 
+def resizer(pic, newsize):
+    """Resizes an image array or a list of image arrays."""
+    if isinstance(newsize, tuple):
+        newsize = newsize
+    else:
+        newsize = (newsize, newsize)
+    pilim = Image.fromarray(pic)
+    resized_pil = pilim.resize(newsize[::-1], Image.LANCZOS)
+    return np.array(resized_pil)
 
 def zoom_in_effect(clip, zoom_factor=1.1, duration=1):
     """
@@ -248,7 +257,7 @@ def zoom_in_effect(clip, zoom_factor=1.1, duration=1):
     Returns:
     - a video clip with the zoom-in effect applied.
     """
-    return clip.resize(lambda t: 1 + (zoom_factor - 1) * (t / duration)).set_duration(duration)
+    return clip.resizer(lambda t: 1 + (zoom_factor - 1) * (t / duration)).set_duration(duration)
 
 
 def create_video_with_text(images_data, output_video, prompts, fps=1,
