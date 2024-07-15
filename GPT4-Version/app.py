@@ -235,15 +235,8 @@ def text_to_image(img_array, text, font_size=28, text_color=(255, 255, 255),
     logging.debug("Exiting text_to_image function")
     return np.array(image)
 
-def slide_transition(clip1, clip2, direction='left', duration=1):
-    w, h = clip1.size
-    if direction == 'left':
-        return concatenate_videoclips([clip1.set_position(lambda t: ('center', 'center')),
-                                       clip2.set_position(lambda t: (w*(1 - t/duration), 'center'))], method="compose")
-    elif direction == 'right':
-        return concatenate_videoclips([clip1.set_position(lambda t: ('center', 'center')),
-                                       clip2.set_position(lambda t: (-w*(1 - t/duration), 'center'))], method="compose")
-
+def zoom_out_effect(clip, duration=1):
+    return clip.resize(lambda t: 1 + 0.1 * t).set_position("center").set_duration(duration)
 
 def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Justin'):
     audio_clips = []
@@ -261,6 +254,7 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
         img_array = np.array(image)
         img_with_text = text_to_image(img_array, prompt, font_size=28)
         img_clip = ImageClip(img_with_text).set_duration(speech_clip.duration)
+        img_clip = zoom_out_effect(img_clip, duration=speech_clip.duration)
         video = img_clip.set_audio(speech_clip)
         video_clips.append(video)
         audio_clips.append(speech_clip)
@@ -269,11 +263,12 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
         logging.error("No video clips were created. Ensure that image data and prompts are valid.")
         return
 
-    # Apply transitions between clips
+    # Apply simple cut transition between clips
     final_video_clips = []
     for i in range(len(video_clips) - 1):
         final_video_clips.append(video_clips[i])
-        final_video_clips.append(slide_transition(video_clips[i], video_clips[i + 1], duration=1))
+        transition_clip = video_clips[i + 1].set_start(video_clips[i].end).crossfadein(0.5)
+        final_video_clips.append(transition_clip)
 
     final_video_clips.append(video_clips[-1])
     final_video = concatenate_videoclips(final_video_clips, method="compose")
