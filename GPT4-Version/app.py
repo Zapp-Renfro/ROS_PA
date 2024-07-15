@@ -670,7 +670,7 @@ def music_choice():
             else:
                 error = "Aucune piste trouvée pour la recherche."
 
-    return render_template('index.html', top_tracks=top_tracks, search_tracks=search_tracks, error=error)
+    return render_template('music_choice.html', top_tracks=top_tracks, search_tracks=search_tracks, error=error)
 
 
 
