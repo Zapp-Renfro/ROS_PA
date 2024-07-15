@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Music App</title>
+    <title>Music Selection</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='music_choice.css') }}">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>Proposition de musique</h1>
+            <h1>Background music suggestions</h1>
         </header>
 
         {% if error %}
@@ -21,10 +21,10 @@
                 {% for track in top_tracks %}
                     <li class="track-item">
                         <div class="track-info">
-                            <span>{{ track['name'] }} par {{ track['artist_name'] }}</span>
+                            <span>{{ track['name'] }} by {{ track['artist_name'] }}</span>
                             <audio controls>
                                 <source src="{{ track['audio'] }}" type="audio/mpeg">
-                                Votre navigateur ne supporte pas l'élément audio.
+                                Your browser doesn't support this type of audio.
                             </audio>
                         </div>
                         <form method="POST" action="{{ url_for('select_track') }}" class="select-form">
@@ -32,7 +32,7 @@
                             <input type="hidden" name="track_name" value="{{ track['name'] }}">
                             <input type="hidden" name="artist_name" value="{{ track['artist_name'] }}">
                             <input type="hidden" name="preview_url" value="{{ track['audio'] }}">
-                            <button type="submit">Sélectionner</button>
+                            <button type="submit">Pick</button>
                         </form>
                     </li>
                 {% endfor %}
@@ -40,24 +40,24 @@
         </section>
 
         <section>
-            <h2>Recherche de Musique</h2>
+            <h2>Search for other music tracks</h2>
             <form method="POST" class="search-form">
-                <label for="query">Entrez un terme de recherche:</label>
+                <label for="query">Enter your search here</label>
                 <input type="text" id="query" name="query">
-                <button type="submit">Rechercher</button>
+                <button type="submit">Search</button>
             </form>
         </section>
 
         <section>
-            <h2>Résultats de la recherche</h2>
+            <h2>Search results</h2>
             <ul class="track-list">
                 {% for track in search_tracks %}
                     <li class="track-item">
                         <div class="track-info">
-                            <span>{{ track['name'] }} par {{ track['artist_name'] }}</span>
+                            <span>{{ track['name'] }} by {{ track['artist_name'] }}</span>
                             <audio controls>
                                 <source src="{{ track['audio'] }}" type="audio/mpeg">
-                                Votre navigateur ne supporte pas l'élément audio.
+                                Your browser doesn't support this type of audio.
                             </audio>
                         </div>
                         <form method="POST" action="{{ url_for('select_track') }}" class="select-form">
@@ -65,7 +65,7 @@
                             <input type="hidden" name="track_name" value="{{ track['name'] }}">
                             <input type="hidden" name="artist_name" value="{{ track['artist_name'] }}">
                             <input type="hidden" name="preview_url" value="{{ track['audio'] }}">
-                            <button type="submit">Sélectionner</button>
+                            <button type="submit">Pick</button>
                         </form>
                     </li>
                 {% endfor %}

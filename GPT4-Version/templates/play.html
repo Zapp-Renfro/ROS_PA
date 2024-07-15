@@ -23,25 +23,25 @@
 <body>
     <div class="container">
         <header>
-            <h1>Jouer la piste sélectionnée</h1>
+            <h1>Play selected track</h1>
         </header>
-        <p>{{ track_name }} par {{ artist_name }}</p>
+        <p>{{ track_name }} by {{ artist_name }}</p>
         <audio id="audioPlayer" controls>
             <source src="{{ preview_url }}" type="audio/mpeg">
-            Votre navigateur ne supporte pas l'élément audio.
+            Your browser doesn't support this type of audio.
         </audio>
         <div class="slider" id="timeSlider"></div>
         <div class="time-display">
-            <div>Début: <span id="start_time_display">0:00</span></div>
-            <div>Fin: <span id="end_time_display">{{ video_duration }}</span></div>
+            <div>Start: <span id="start_time_display">0:00</span></div>
+            <div>End: <span id="end_time_display">{{ video_duration }}</span></div>
         </div>
-        <button id="playSelected" class="play-button">Écouter la sélection</button>
+        <button id="playSelected" class="play-button">Listen to selection</button>
         <form method="POST" action="{{ url_for('final_video') }}">
             <input type="hidden" name="track_id" value="{{ track_id }}">
             <input type="hidden" name="preview_url" value="{{ preview_url }}">
             <input type="hidden" id="hidden_start_time" name="start_time" value="0">
             <input type="hidden" id="hidden_end_time" name="end_time" value="{{ video_duration }}">
-            <button type="submit">Créer une vidéo</button>
+            <button type="submit">Pick and Create video</button>
         </form>
     </div>
 

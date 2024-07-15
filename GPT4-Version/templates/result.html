@@ -1,18 +1,18 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Résultat de Génération</title>
+    <title>Text Generation Result</title>
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='result.css') }}">
 </head>
 <body>
     <div class="container">
-        <h1>Résultat</h1>
+        <h1>Result</h1>
         <div class="prompt">{{ response|safe }}</div>
 
         <!-- Formulaire pour générer les images à partir des phrases -->
         <form action="/generate_images" method="post">
             <input type="hidden" name="text" value="{{ image_prompt|safe }}" />
-            <button type="submit">Générer Images</button>
+            <button type="submit">Generate Images</button>
         </form>
 
         {% if model_url %}
@@ -20,18 +20,18 @@
             <input type="hidden" name="model_url" id="model_url" value="{{ model_url }}" />
             <input type="hidden" name="response" id="response" value="{{ response }}" />
             <input type="hidden" name="image_prompt" id="image_prompt" value="{{ image_prompt }}" />
-            <button type="submit">Je suis satisfait des résultats de ce modèle.</button>
+            <button type="submit">I like this result.</button>
             <output id="incrementOuput"></output>
         </form>
         {% endif %}
 
-        <a href="/">Retour</a>
+        <a href="/">Back</a>
     </div>
     <script>
         document.getElementById('incrementForm').addEventListener('submit', function(event) {
             // event.preventDefault();
             var modelId = document.getElementById('model_url').value;
-            document.getElementById('incrementOuput').innerHTML = "Like envoyé, les modèles proposés sont mis à jour."
+            document.getElementById('incrementOuput').innerHTML = "Thanks! Our suggestions have been updated."
         });
     </script>
 </body>
