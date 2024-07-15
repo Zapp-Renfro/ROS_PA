@@ -118,6 +118,8 @@ def text_to_speech(text, output_filename, voice_id='Justin'):
     )
     with open(output_filename, 'wb') as file:
         file.write(response['AudioStream'].read())
+
+
 def format_response(chat_history):
     formatted_text = ""
     for entry in chat_history:
@@ -671,7 +673,6 @@ def music_choice():
                 error = "Aucune piste trouvée pour la recherche."
 
     return render_template('music_choice.html', top_tracks=top_tracks, search_tracks=search_tracks, error=error)
-
 
 
 @app.route('/select_track', methods=['POST'])
