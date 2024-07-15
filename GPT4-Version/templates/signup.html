@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>S'inscrire</title>
+  <title>Sign Up</title>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
@@ -9,7 +9,7 @@
 </head>
 <body>
   <div class="container">
-    <h2>S'inscrire</h2>
+    <h2>Sign Up</h2>
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         {% for category, message in messages %}
@@ -23,9 +23,9 @@
     <form action="/signup" method="post">
       <label for="email">Email:</label><br>
       <input type="text" id="email" name="email"><br><br>
-      <label for="password">Mot de passe:</label><br>
+      <label for="password">Password:</label><br>
       <input type="password" id="password" name="password"><br><br>
-      <input type="submit" value="S'inscrire" class="w3-button w3-blue">
+      <input type="submit" value="Sign Up" class="w3-button w3-blue">
     </form>
   </div>
 </body>
