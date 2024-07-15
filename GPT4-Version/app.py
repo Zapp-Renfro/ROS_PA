@@ -56,14 +56,6 @@ AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
 AWS_REGION = os.getenv('AWS_REGION')
 
 
-@app.route('/get_nationalities', methods=['GET'])
-def get_nationalities():
-    # Liste de nationalités supportées par Amazon Polly
-    nationalities = ['US', 'UK', 'FR', 'DE', 'IT']  # Exemples de nationalités
-    return jsonify({'nationalities': nationalities})
-
-
-
 def get_top_tracks():
     url = "https://api.jamendo.com/v3.0/tracks"
     params = {
@@ -111,44 +103,6 @@ def upload_video_to_supabase(file_path, file_name):
     with open(file_path, 'rb') as file:
         res = supabase.storage().from_('videos').upload(file_name, file)
     return res
-
-
-@app.route('/get_voices', methods=['GET'])
-def get_voices():
-    nationality = request.args.get('nationality')
-    polly_client = boto3.Session(
-        aws_access_key_id=AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-        region_name=AWS_REGION
-    ).client('polly')
-
-    response = polly_client.describe_voices(LanguageCode=nationality)
-    voices = [{'id': voice['Id'], 'name': voice['Name']} for voice in response['Voices']]
-    return jsonify({'voices': voices})
-
-
-@app.route('/play_voice', methods=['GET'])
-def play_voice():
-    voice_id = request.args.get('voice_id')
-    text = "Ceci est un exemple de texte pour tester la voix sélectionnée."
-    polly_client = boto3.Session(
-        aws_access_key_id=AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-        region_name=AWS_REGION
-    ).client('polly')
-
-    response = polly_client.synthesize_speech(
-        Text=text,
-        OutputFormat='mp3',
-        VoiceId=voice_id
-    )
-
-    audio_url = f"/static/temp/{voice_id}.mp3"
-    with open(f'static/temp/{voice_id}.mp3', 'wb') as file:
-        file.write(response['AudioStream'].read())
-
-    return jsonify({'audio_url': audio_url})
-
 
 def text_to_speech(text, output_filename, voice_id='Justin'):
     logging.debug(f"Using voice_id: {voice_id}")
@@ -746,62 +700,74 @@ def final_video():
     preview_url = request.form.get('preview_url')
     music_start_time = int(request.form.get('start_time'))
     music_end_time = int(request.form.get('end_time'))
-    volume = float(request.form.get('volume'))
-    selected_voice_id = request.form.get('selected_voice')
-
-    # Path to the existing video file
-    video_path = 'static/videos/output_video.mp4'
+    video_path = session.get('video_path')
     if not os.path.exists(video_path):
         return "Fichier vidéo non trouvé.", 404
-
-    # Get the duration of the existing video
     video_duration = get_video_duration(video_path)
-
-    # Calculate the duration of the selected music segment
     music_segment_duration = music_end_time - music_start_time
-
-    # Ensure the selected segment duration does not exceed the video duration
     if music_segment_duration > video_duration:
         return "La durée de la sélection de la musique dépasse la durée de la vidéo.", 400
-
-    # Ensure the selected segment is valid
     if music_end_time <= music_start_time:
         return "Temps de début ou de fin invalide.", 400
-
-    # Download the audio preview
     audio_path = download_audio_preview(preview_url)
     if not audio_path:
         return "Aperçu audio non trouvé.", 404
-
-    # Generate speech from text using the selected voice
-    generated_text = "Votre texte généré ici"  # Remplacer par le texte généré réel
+    generated_id = session.get('generated_id')
+    if not generated_id:
+        return "ID du texte généré non trouvé dans la session.", 400
+    try:
+        response = supabase.table('prompts').select('response').eq('id', generated_id).execute()
+        if response.data:
+            generated_text = response.data[0]['response']
+        else:
+            return "Aucun texte généré trouvé.", 404
+    except Exception as e:
+        logging.error(f"Error fetching generated text from Supabase: {e}")
+        return "Erreur lors de la récupération du texte généré.", 500
     voice_audio_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
-    text_to_speech(generated_text, voice_audio_path, voice_id=selected_voice_id)
-
-    # Create a temporary file for the new video with audio
-    output_video_path = os.path.join('static', 'output_with_audio.mp4')
+    try:
+        text_to_speech(generated_text, voice_audio_path, voice_id='Justin')
+    except Exception as e:
+        logging.error(f"Error generating speech from text: {e}")
+        return "Erreur lors de la génération de la voix à partir du texte.", 500
+    output_video_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4").name
     audio_clip = None
     voice_clip = None
+    video_clip = None
     try:
-        # Load the existing video clip
-        video_clip = VideoFileClip(video_path).subclip(0, music_segment_duration)
-        # Add the audio file to the video
+        video_clip = VideoFileClip(video_path)
         audio_clip = AudioFileClip(audio_path).subclip(music_start_time, music_end_time)
         voice_clip = AudioFileClip(voice_audio_path)
-        audio_clip = CompositeAudioClip([audio_clip.volumex(volume), voice_clip])  # Combine music and voice
-        video_clip = video_clip.set_audio(audio_clip)
-        # Write the new video file
+        if video_clip.duration < voice_clip.duration:
+            voice_clip = voice_clip.subclip(0, video_clip.duration)
+        final_audio = CompositeAudioClip([audio_clip.volumex(0.4), voice_clip.set_duration(video_clip.duration)])
+        video_clip = video_clip.set_audio(final_audio)
         video_clip.write_videofile(output_video_path, codec="libx264", fps=24)
     finally:
-        # Ensure the audio files are closed and deleted
+        if video_clip:
+            video_clip.close()
         if audio_clip:
             audio_clip.close()
         if voice_clip:
             voice_clip.close()
         os.remove(audio_path)
         os.remove(voice_audio_path)
-
-    return redirect(url_for('show_video', video_path='static/output_with_audio.mp4'))
+    with open(output_video_path, 'rb') as video_file:
+        video_blob = video_file.read()
+    video_base64 = base64.b64encode(video_blob).decode('utf-8')
+    video_data = {
+        "filename": os.path.basename(output_video_path),
+        "video_blob": video_base64
+    }
+    try:
+        response = supabase.table('videos').insert(video_data).execute()
+        video_id = response.data[0]['id']  # Assume the ID is returned
+        session['new_video_id'] = video_id  # Store the ID in the session instead of the entire video URL
+    except Exception as e:
+        logging.error(f"Error inserting video data into Supabase: {e}")
+        return "Erreur lors de l'insertion des données vidéo dans Supabase.", 500
+    os.remove(output_video_path)
+    return redirect(url_for('show_video'))
 
 
 @app.route('/show_video')
