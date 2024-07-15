@@ -235,10 +235,12 @@ def text_to_image(img_array, text, font_size=28, text_color=(255, 255, 255),
     logging.debug("Exiting text_to_image function")
     return np.array(image)
 
-def zoom_out_effect(clip, duration=1):
-    return clip.resize(lambda t: 1 + 0.1 * t).set_position("center").set_duration(duration)
 
-def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Justin'):
+from moviepy.video.fx.all import resize, crossfadein
+
+
+def create_video_with_text(images_data, output_video, prompts, fps=1,
+                           audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Justin'):
     audio_clips = []
     video_clips = []
     audio_dir = 'static/audio'
@@ -254,8 +256,13 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
         img_array = np.array(image)
         img_with_text = text_to_image(img_array, prompt, font_size=28)
         img_clip = ImageClip(img_with_text).set_duration(speech_clip.duration)
-        img_clip = zoom_out_effect(img_clip, duration=speech_clip.duration)
-        video = img_clip.set_audio(speech_clip)
+
+        # Apply zoom out effect
+        zoomed_clip = img_clip.resize(lambda t: 1 - 0.02 * t)
+
+        # Set the audio for the clip
+        video = zoomed_clip.set_audio(speech_clip)
+
         video_clips.append(video)
         audio_clips.append(speech_clip)
 
@@ -263,24 +270,24 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
         logging.error("No video clips were created. Ensure that image data and prompts are valid.")
         return
 
-    # Apply simple cut transition between clips
-    final_video_clips = []
-    for i in range(len(video_clips) - 1):
-        final_video_clips.append(video_clips[i])
-        transition_clip = video_clips[i + 1].set_start(video_clips[i].end).crossfadein(0.5)
-        final_video_clips.append(transition_clip)
+    # Apply crossfade effect between each clip
+    final_clips = [video_clips[0]]
+    for i in range(1, len(video_clips)):
+        final_clips.append(video_clips[i].crossfadein(1))
 
-    final_video_clips.append(video_clips[-1])
-    final_video = concatenate_videoclips(final_video_clips, method="compose")
+    final_video = concatenate_videoclips(final_clips, method="compose")
 
     background_music = AudioFileClip(audio_path).subclip(0, final_video.duration)
     background_music = background_music.volumex(0.4)
     final_audio = concatenate_audioclips(audio_clips)
     final_audio = CompositeAudioClip([background_music, final_audio.set_duration(background_music.duration)])
+
     final_video = final_video.set_audio(final_audio)
     final_video.write_videofile(output_video, fps=fps, codec='libx264')
+
     for audio_file in os.listdir(audio_dir):
         os.remove(os.path.join(audio_dir, audio_file))
+
 
 @app.route('/create_video', methods=['GET'])
 def create_video():
