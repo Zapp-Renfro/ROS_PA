@@ -1,19 +1,13 @@
-from ctypes import resize
-
 import boto3
 from flask import Flask, request, render_template, jsonify, session, url_for, redirect, flash
 from datetime import datetime
 import os
 from moviepy.editor import ImageClip, TextClip, CompositeVideoClip, concatenate_videoclips, AudioFileClip, \
     concatenate_audioclips, CompositeAudioClip
-from moviepy.video.fx.fadein import fadein
-from moviepy.video.fx.fadeout import fadeout
 from moviepy.video.io.VideoFileClip import VideoFileClip
 from werkzeug.security import generate_password_hash, check_password_hash
 from supabase import create_client, Client
 import requests
-from moviepy.video.fx.all import *
-
 import base64
 from io import BytesIO
 from PIL import Image, ImageDraw, ImageFont
@@ -242,22 +236,38 @@ def text_to_image(img_array, text, font_size=28, text_color=(255, 255, 255),
     return np.array(image)
 
 
-def zoom_in_effect(clip, zoom_duration=1, zoom_factor=1.1):
+def zoom_in_effect(clip, zoom_factor=1.1, duration=1):
     """
     Adds a zoom-in effect to a video clip.
 
     Parameters:
     - clip: the original video clip.
-    - zoom_duration: duration of the zoom effect.
     - zoom_factor: factor by which to zoom in.
+    - duration: duration of the zoom effect.
 
     Returns:
     - a video clip with the zoom-in effect applied.
     """
-    zoomed_clip = clip.fx(resize, zoom_factor)
-    return zoomed_clip.set_duration(zoom_duration)
+    return clip.resize(lambda t: 1 + (zoom_factor - 1) * (t / duration)).set_duration(duration)
 
-def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Justin'):
+
+def fade_transition(clip1, clip2, duration=0.5):
+    """
+    Creates a fade transition between two clips.
+
+    Parameters:
+    - clip1: the first video clip.
+    - clip2: the second video clip.
+    - duration: duration of the fade transition.
+
+    Returns:
+    - a concatenated video clip with a fade transition.
+    """
+    return concatenate_videoclips([clip1.crossfadeout(duration), clip2.crossfadein(duration)], method="compose")
+
+
+def create_video_with_text(images_data, output_video, prompts, fps=1,
+                           audio_path='static/music/relaxing-piano-201831.mp3', voice_id='Justin'):
     audio_clips = []
     video_clips = []
     audio_dir = 'static/audio'
@@ -273,7 +283,7 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
         img_array = np.array(image)
         img_with_text = text_to_image(img_array, prompt, font_size=28)
         img_clip = ImageClip(img_with_text).set_duration(speech_clip.duration)
-        img_clip = zoom_in_effect(img_clip, zoom_duration=speech_clip.duration)
+        img_clip = zoom_in_effect(img_clip, zoom_factor=1.1, duration=speech_clip.duration)
         video = img_clip.set_audio(speech_clip)
         video_clips.append(video)
         audio_clips.append(speech_clip)
@@ -285,10 +295,8 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
     # Add transitions between clips
     final_clips = [video_clips[0]]
     for i in range(1, len(video_clips)):
-        transition = fadeout(video_clips[i-1], duration=0.5).set_end(video_clips[i-1].end)
-        next_clip = fadein(video_clips[i], duration=0.5).set_start(transition.end)
+        transition = fade_transition(video_clips[i - 1], video_clips[i], duration=0.5)
         final_clips.append(transition)
-        final_clips.append(next_clip)
 
     final_video = concatenate_videoclips(final_clips, method="compose")
     background_music = AudioFileClip(audio_path).subclip(0, final_video.duration)
@@ -300,6 +308,7 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
 
     for audio_file in os.listdir(audio_dir):
         os.remove(os.path.join(audio_dir, audio_file))
+
 
 @app.route('/create_video', methods=['GET'])
 def create_video():
