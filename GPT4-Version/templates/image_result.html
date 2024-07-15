@@ -1,95 +1,112 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-      <title>Images Générées</title>
-      <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='image_result.css') }}">
-      <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
-      <script>
-          async function checkJobStatus(jobId) {
-              try {
-                  let response = await fetch(`/results/${jobId}`);
-                  if (response.status === 202) {
-                      setTimeout(() => checkJobStatus(jobId), 2000); // Retry every 2 seconds
-                  } else {
-                      let data = await response.json();
-                      displayImages(data.image_data);
-                      document.querySelector('.title').innerText = 'Images Générées'; // Set title when images are loaded
-                  }
-              } catch (error) {
-                  console.error('Error fetching job status:', error);
-              }
-          }
+<head>
+    <title>Images Générées</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='image_result.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <script>
+        async function checkJobStatus(jobId) {
+            try {
+                let response = await fetch(`/results/${jobId}`);
+                if (response.status === 202) {
+                    setTimeout(() => checkJobStatus(jobId), 2000); // Retry every 2 seconds
+                } else {
+                    let data = await response.json();
+                    displayImages(data.image_data);
+                    document.querySelector('.title').innerText = 'Images Générées'; // Set title when images are loaded
+                    hideLoading();
+                }
+            } catch (error) {
+                console.error('Error fetching job status:', error);
+                hideLoading();
+            }
+        }
 
-          function displayImages(imageData) {
-              const container = document.querySelector('.image-container');
-              container.innerHTML = ''; // Clear any existing content
-              imageData.forEach(data => {
-                  const card = document.createElement('div');
-                  card.className = 'card-wrap';
-                  card.setAttribute('data-prompt', data.prompt_text);
+        function displayImages(imageData) {
+            const container = document.querySelector('.image-container');
+            container.innerHTML = ''; // Clear any existing content
+            imageData.forEach(data => {
+                const card = document.createElement('div');
+                card.className = 'card-wrap';
+                card.setAttribute('data-prompt', data.prompt_text);
 
-                  const cardContent = `
-                      <div class="card" style="background-image: url('${data.image_url}')">
-                          <div class="card-info">
-                              <h1 slot="header">${data.prompt_text}</h1>
-                              <button onclick="regenerateImage('${data.prompt_text}', '{{ code }}')">Régénérer l'image</button>
-                          </div>
-                      </div>
-                  `;
-                  card.innerHTML = cardContent;
-                  container.appendChild(card);
-              });
-          }
+                const cardContent = `
+                    <div class="card" style="background-image: url('${data.image_url}')">
+                        <div class="card-info">
+                            <h1 slot="header">${data.prompt_text}</h1>
+                            <button onclick="regenerateImage('${data.prompt_text}', '{{ code }}')">Régénérer l'image</button>
+                        </div>
+                    </div>
+                `;
+                card.innerHTML = cardContent;
+                container.appendChild(card);
+            });
+        }
 
-          async function regenerateImage(prompt, code) {
-              try {
-                  const response = await fetch('/regenerate_image', {
-                      method: 'POST',
-                      headers: {
-                          'Content-Type': 'application/json'
-                      },
-                      body: JSON.stringify({ prompt, code })
-                  });
+        async function regenerateImage(prompt, code) {
+            try {
+                showLoading();
+                const response = await fetch('/regenerate_image', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ prompt, code })
+                });
 
-                  if (response.ok) {
-                      const data = await response.json();
-                      const card = document.querySelector(`div.card-wrap[data-prompt="${prompt}"]`);
-                      if (card) {
-                          const cardElement = card.querySelector('.card');
-                          cardElement.style.backgroundImage = `url('${data.image_url}')`;
-                          document.querySelector('.title').innerText = 'Une image a été regénérée'; // Change title for regenerated image
-                      }
-                  } else {
-                      console.error('Failed to regenerate image');
-                  }
-              } catch (error) {
-                  console.error('Error regenerating image:', error);
-              }
-          }
+                if (response.ok) {
+                    const data = await response.json();
+                    const card = document.querySelector(`div.card-wrap[data-prompt="${prompt}"]`);
+                    if (card) {
+                        const cardElement = card.querySelector('.card');
+                        cardElement.style.backgroundImage = `url('${data.image_url}')`;
+                        document.querySelector('.title').innerText = 'TESSSSSSSSST'; // Change title for regenerated image
+                    }
+                } else {
+                    console.error('Failed to regenerate image');
+                }
+                hideLoading();
+            } catch (error) {
+                console.error('Error regenerating image:', error);
+                hideLoading();
+            }
+        }
 
-          document.addEventListener('DOMContentLoaded', (event) => {
-              const jobId = "{{ job_id }}"; // Pass the job ID from the server
-              checkJobStatus(jobId);
-          });
-      </script>
-  </head>
-  <body>
-      <h1 class="title">Images Générées</h1>
-      <div id="app" class="container">
-          <div class="image-container">
-              <!-- Images will be dynamically inserted here -->
-          </div>
+        function showLoading() {
+            document.getElementById('loading').style.display = 'flex';
+        }
 
-          <!-- Formulaire pour créer la vidéo -->
-          <form action="/create_video" method="get" class="video-form">
-              {% for prompt in prompts %}
-                  <input type="hidden" name="prompts" value="{{ prompt }}">
-              {% endfor %}
-              <input type="hidden" name="code" value="{{ code }}">
-              <button type="submit" class="btn">Créer Vidéo</button>
-          </form>
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
 
-          <a href="/" class="back-link">Retour</a>
-      </div>
-  </body>
+        document.addEventListener('DOMContentLoaded', (event) => {
+            const jobId = "{{ job_id }}"; // Pass the job ID from the server
+            showLoading();
+            checkJobStatus(jobId);
+        });
+    </script>
+</head>
+<body>
+    <h1 class="title">Images Générées</h1>
+    <div id="loading">
+        <img src="{{ url_for('static', filename='images/loading.gif') }}" alt="Loading...">
+    </div>
+    <div id="app" class="container">
+        <div class="image-container">
+            <!-- Images will be dynamically inserted here -->
+        </div>
+
+        <!-- Formulaire pour créer la vidéo -->
+        <form action="/create_video" method="get" class="video-form">
+            {% for prompt in prompts %}
+                <input type="hidden" name="prompts" value="{{ prompt }}">
+            {% endfor %}
+            <input type="hidden" name="code" value="{{ code }}">
+            <button type="submit" class="btn">Créer Vidéo</button>
+        </form>
+
+        <a href="/" class="back-link">Retour</a>
+    </div>
+</body>
 </html>
