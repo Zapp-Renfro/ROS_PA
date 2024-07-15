@@ -54,13 +54,28 @@ AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
 AWS_REGION = os.getenv('AWS_REGION')
 mood = "bad"
 
-def search_music_by_mood(mood):
+def get_top_tracks():
     url = "https://api.jamendo.com/v3.0/tracks"
     params = {
         "client_id": JAMENDO_CLIENT_ID,
         "format": "json",
         "limit": 10,
-        "tags": mood
+        "order": "popularity_total"
+    }
+    response = requests.get(url, params=params)
+    if response.status_code != 200:
+        print("Error: ", response.status_code)
+        print(response.text)
+        return None
+    return response.json()
+
+def search_music_by_keyword(keyword):
+    url = "https://api.jamendo.com/v3.0/tracks"
+    params = {
+        "client_id": JAMENDO_CLIENT_ID,
+        "format": "json",
+        "limit": 10,
+        "search": keyword
     }
     response = requests.get(url, params=params)
     if response.status_code != 200:
@@ -631,39 +646,31 @@ def api_generate_images():
 
 
 @app.route('/music_choice', methods=['GET', 'POST'])
-def music_choice():
-    mood_tracks = []
+@app.route('/', methods=['POST', 'GET'])
+def index():
+    top_tracks = []
     search_tracks = []
     error = None
-    try:
-        # Définir une humeur par défaut
-        mood = 'sad'  # Remplacez 'sad' par une méthode pour récupérer la véritable humeur si nécessaire
-        app.logger.info(f'Retrieving tracks for mood: {mood}')
-        # Récupérer les pistes pour l'humeur "sad"
-        mood_result = search_music_by_mood(mood)
-        if mood_result and 'results' in mood_result:
-            mood_tracks = mood_result['results']
-            app.logger.info(f'Found {len(mood_tracks)} tracks for mood: {mood}')
-        else:
-            error = "Aucune piste trouvée pour l'humeur donnée."
-            app.logger.error(error)
-        # Si une recherche par mot-clé est effectuée
-        if request.method == 'POST':
-            query = request.form.get('query')
-            app.logger.info(f'Search query: {query}')
-            if query:
-                search_result = search_music_by_mood(query)
-                if search_result:
-                    search_tracks = search_result['results']
-                    app.logger.info(f'Found {len(search_tracks)} tracks for search query: {query}')
-                else:
-                    error = "Aucune piste trouvée pour la recherche."
-                    app.logger.error(error)
-    except Exception as e:
-        app.logger.exception(f"Error in /music_choice route: {e}")
-        error = "Une erreur est survenue. Veuillez réessayer plus tard."
-    return render_template('music_choice.html', mood=mood, mood_tracks=mood_tracks, search_tracks=search_tracks,
-                           error=error)
+
+    # Récupérer les pistes les plus populaires
+    top_tracks_result = get_top_tracks()
+    if top_tracks_result and 'results' in top_tracks_result:
+        top_tracks = top_tracks_result['results']
+    else:
+        error = "Aucune piste trouvée pour les pistes populaires."
+
+    # Si une recherche par mot-clé est effectuée
+    if request.method == 'POST':
+        query = request.form.get('query')
+        if query:
+            search_result = search_music_by_keyword(query)
+            if search_result and 'results' in search_result:
+                search_tracks = search_result['results']
+            else:
+                error = "Aucune piste trouvée pour la recherche."
+
+    return render_template('music_choice.html', top_tracks=top_tracks, search_tracks=search_tracks, error=error)
+
 
 
 @app.route('/select_track', methods=['POST'])
