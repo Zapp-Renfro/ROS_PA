@@ -53,6 +53,7 @@ AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
 AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
 AWS_REGION = os.getenv('AWS_REGION')
 mood = "bad"
+
 def search_music_by_mood(mood):
     url = "https://api.jamendo.com/v3.0/tracks"
     params = {
@@ -67,6 +68,7 @@ def search_music_by_mood(mood):
         print(response.text)
         return None
     return response.json()
+
 def get_video_duration(video_path):
     with VideoFileClip(video_path) as video:
         return int(video.duration)
@@ -161,6 +163,8 @@ def generate_images_from_prompts(prompts, code):
                 logging.error(f"An error occurred: {err}")
                 break
     return filenames
+
+
 def text_to_image(img_array, text, font_size=28, text_color=(255, 255, 255),
                   outline_color=(0, 0, 0), shadow_color=(50, 50, 50), max_width=None):
     logging.debug("Entering text_to_image function")
