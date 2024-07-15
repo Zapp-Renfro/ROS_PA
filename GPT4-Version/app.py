@@ -22,6 +22,8 @@ import time
 from requests.exceptions import HTTPError
 import tempfile
 
+
+
 # Initialisation de l'application Flask
 app = Flask(__name__)
 q = Queue(connection=conn)
@@ -52,7 +54,7 @@ HEADERS_LIST = [{"Authorization": f"Bearer {HUGGINGFACE_API_TOKEN}"}]
 AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
 AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
 AWS_REGION = os.getenv('AWS_REGION')
-mood = "bad"
+
 
 def get_top_tracks():
     url = "https://api.jamendo.com/v3.0/tracks"
@@ -69,13 +71,13 @@ def get_top_tracks():
         return None
     return response.json()
 
-def search_music_by_keyword(keyword):
+def search_music_by_keyword(key):
     url = "https://api.jamendo.com/v3.0/tracks"
     params = {
         "client_id": JAMENDO_CLIENT_ID,
         "format": "json",
         "limit": 10,
-        "search": keyword
+        "tags": key
     }
     response = requests.get(url, params=params)
     if response.status_code != 200:
@@ -646,8 +648,7 @@ def api_generate_images():
 
 
 @app.route('/music_choice', methods=['GET', 'POST'])
-@app.route('/', methods=['POST', 'GET'])
-def index():
+def music_choice():
     top_tracks = []
     search_tracks = []
     error = None
@@ -669,7 +670,7 @@ def index():
             else:
                 error = "Aucune piste trouvée pour la recherche."
 
-    return render_template('music_choice.html', top_tracks=top_tracks, search_tracks=search_tracks, error=error)
+    return render_template('index.html', top_tracks=top_tracks, search_tracks=search_tracks, error=error)
 
 
 
