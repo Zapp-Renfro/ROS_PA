@@ -700,7 +700,7 @@ def final_video():
     preview_url = request.form.get('preview_url')
     music_start_time = int(request.form.get('start_time'))
     music_end_time = int(request.form.get('end_time'))
-    music_volume = float(request.form.get('music_volume', 0.4))  # Default volume is set to 0.4
+    music_volume = float(request.form.get('music_volume', 0.3))  # Default volume is set to 0.4
     video_path = session.get('video_path')
 
     if not os.path.exists(video_path):
