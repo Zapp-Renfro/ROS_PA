@@ -261,7 +261,7 @@ def create_video_with_text(images_data, output_video, prompts, fps=1, audio_path
         return
     final_video = concatenate_videoclips(video_clips, method="compose")
     background_music = AudioFileClip(audio_path).subclip(0, final_video.duration)
-    background_music = background_music.volumex(0.4)
+    background_music = background_music.volumex(0.2)
     final_audio = concatenate_audioclips(audio_clips)
     final_audio = CompositeAudioClip([background_music, final_audio.set_duration(background_music.duration)])
     final_video = final_video.set_audio(final_audio)
