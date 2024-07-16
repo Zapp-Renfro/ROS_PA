@@ -2,8 +2,7 @@ import boto3
 from flask import Flask, request, render_template, jsonify, session, url_for, redirect, flash , get_flashed_messages
 from datetime import datetime
 import os
-from moviepy.editor import ImageClip, TextClip, CompositeVideoClip, concatenate_videoclips, AudioFileClip, \
-    concatenate_audioclips, CompositeAudioClip
+from moviepy.editor import ImageClip, TextClip, CompositeVideoClip, concatenate_videoclips, AudioFileClip,concatenate_audioclips, CompositeAudioClip
 from moviepy.video.io.VideoFileClip import VideoFileClip
 from werkzeug.security import generate_password_hash, check_password_hash
 from supabase import create_client, Client
@@ -701,7 +700,9 @@ def final_video():
     preview_url = request.form.get('preview_url')
     music_start_time = int(request.form.get('start_time'))
     music_end_time = int(request.form.get('end_time'))
+    music_volume = float(request.form.get('music_volume', 0.4))  # Default volume is set to 0.4
     video_path = session.get('video_path')
+
     if not os.path.exists(video_path):
         return "Fichier vidéo non trouvé.", 404
     video_duration = get_video_duration(video_path)
@@ -737,7 +738,7 @@ def final_video():
     video_clip = None
     try:
         video_clip = VideoFileClip(video_path)
-        audio_clip = AudioFileClip(audio_path).subclip(music_start_time, music_end_time)
+        audio_clip = AudioFileClip(audio_path).subclip(music_start_time, music_end_time).volumex(music_volume)
         voice_clip = AudioFileClip(voice_audio_path)
         if video_clip.duration < voice_clip.duration:
             voice_clip = voice_clip.subclip(0, video_clip.duration)
