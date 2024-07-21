@@ -64,16 +64,14 @@ export const CTA = () => {
           className="flex flex-col items-center gap-4 sm:flex-row"
         >
           <SplashButton
-            onClick={() => router.push("/signin")}
+            href="https://paros-a5fefea932a8.herokuapp.com/"
             className="flex items-center gap-2"
           >
             Try it free
             <FiArrowRight />
           </SplashButton>
           <GhostButton
-            //onClick={() => router.push("/#features")}
-              as="a"
-            href="https://paros-a5fefea932a8.herokuapp.com/"
+            onClick={() => router.push("/#features")}
             className="rounded-md px-4 py-2 text-lg text-zinc-100"
           >
             Learn more
