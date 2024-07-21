@@ -542,7 +542,6 @@ def generate_images_route():
     )
     return render_template('image_result.html', job_id=job.get_id(), prompts=prompts, code=code)
 
-
 @app.route('/regenerate_image', methods=['POST'])
 def regenerate_image():
     logging.debug("Received request to regenerate image")
