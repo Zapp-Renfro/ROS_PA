@@ -81,8 +81,10 @@ export const Content = () => {
         className="flex flex-col items-center gap-4 sm:flex-row"
       >
         <SplashButton
-          onClick={() => router.push("/signin")}
-          className="flex items-center gap-2"
+          //onClick={() => router.push("/signin")}
+            as="a"
+            href="https://paros-a5fefea932a8.herokuapp.com/"
+            className="flex items-center gap-2"
         >
           Try it free
           <FiArrowRight />
