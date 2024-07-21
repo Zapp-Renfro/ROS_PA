@@ -82,7 +82,7 @@ export const Content = () => {
       >
         <SplashButton
           //onClick={() => router.push("/signin")}
-            as="a"
+            //as="a"
             href="https://paros-a5fefea932a8.herokuapp.com/"
             className="flex items-center gap-2"
         >
