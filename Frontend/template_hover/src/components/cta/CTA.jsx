@@ -71,7 +71,9 @@ export const CTA = () => {
             <FiArrowRight />
           </SplashButton>
           <GhostButton
-            onClick={() => router.push("/#features")}
+            //onClick={() => router.push("/#features")}
+              as="a"
+            href="https://paros-a5fefea932a8.herokuapp.com/"
             className="rounded-md px-4 py-2 text-lg text-zinc-100"
           >
             Learn more
