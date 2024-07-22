@@ -81,7 +81,7 @@ export const Content = () => {
         }}
         className="flex flex-col items-center gap-4 sm:flex-row"
       >
-        <Link href="/start" passHref>
+        <Link href="/Start" passHref>
           <SplashButton
             className="flex items-center gap-2"
           >
@@ -90,7 +90,7 @@ export const Content = () => {
           </SplashButton>
         </Link>
         <GhostButton
-          onClick={() => router.push("/#features")}
+          onClick={() => router.push("/Start")}
           className="rounded-md px-4 py-2 text-lg text-zinc-100"
         >
           Learn more
