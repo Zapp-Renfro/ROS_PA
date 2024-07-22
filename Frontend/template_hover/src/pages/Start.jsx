@@ -1,12 +1,15 @@
 import React from 'react';
+import Link from 'next/link';
 import { FiArrowRight } from "react-icons/fi";
 import { MaxWidthWrapper } from "@/components/utils/MaxWidthWrapper";
 import { motion } from "framer-motion";
 import { SplashButton } from "@/components/buttons/SplashButton";
 import { GhostButton } from "@/components/buttons/GhostButton";
 import { GlowingChip } from "@/components/utils/GlowingChip";
+import { useRouter } from 'next/router';
 
 const Start = () => {
+  const router = useRouter();
   return (
     <MaxWidthWrapper className="relative z-20 flex flex-col items-center justify-center pb-12 pt-24 md:pb-36 md:pt-36">
       <motion.div
@@ -78,12 +81,14 @@ const Start = () => {
         }}
         className="flex flex-col items-center gap-4 sm:flex-row"
       >
-        <SplashButton className="flex items-center gap-2 px-6 py-3 text-xl font-semibold text-white bg-green-600 rounded-lg shadow-lg hover:bg-green-700">
-          Get Started
-          <FiArrowRight />
-        </SplashButton>
+        <Link href="/start" passHref>
+          <SplashButton className="flex items-center gap-2 px-6 py-3 text-xl font-semibold text-white bg-green-600 rounded-lg shadow-lg hover:bg-green-700">
+            Get Started
+            <FiArrowRight />
+          </SplashButton>
+        </Link>
         <GhostButton
-          onClick={() => alert("Learn more clicked!")}
+          onClick={() => router.push("/learn-more")}
           className="flex items-center gap-2 px-6 py-3 text-xl font-semibold text-green-600 bg-white border-2 border-green-600 rounded-lg shadow-lg hover:bg-green-100"
         >
           Learn More
