@@ -1,10 +1,10 @@
 import React from 'react';
 import { FiArrowRight } from "react-icons/fi";
-import { MaxWidthWrapper } from "../utils/MaxWidthWrapper";
+import { MaxWidthWrapper } from "@/components/utils/MaxWidthWrapper";
 import { motion } from "framer-motion";
-import { SplashButton } from "../buttons/SplashButton";
-import { GhostButton } from "../buttons/GhostButton";
-import { GlowingChip } from "../utils/GlowingChip";
+import { SplashButton } from "@/components/buttons/SplashButton";
+import { GhostButton } from "@/components/buttons/GhostButton";
+import { GlowingChip } from "@/components/utils/GlowingChip";
 
 const Start = () => {
   return (
