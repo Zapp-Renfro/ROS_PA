@@ -1,152 +1,186 @@
-import React, { useState } from 'react';
-import { FiArrowRight } from "react-icons/fi";
-import { MaxWidthWrapper } from "@/components/utils/MaxWidthWrapper";
-import { motion } from "framer-motion";
-import { SplashButton } from "@/components/buttons/SplashButton";
-import { GhostButton } from "@/components/buttons/GhostButton";
-import { GlowingChip } from "@/components/utils/GlowingChip";
+import React from 'react';
+import styled from 'styled-components';
+import Link from 'next/link';
 
-const Start = () => {
-  const [prompt, setPrompt] = useState('');
-  const [promptStart, setPromptStart] = useState('make me');
-  const [prompt2, setPrompt2] = useState('');
-  const [modelApi, setModelApi] = useState('');
+const Navbar = styled.div`
+  position: fixed;
+  width: 100%;
+  top: 0;
+  z-index: 1;
+  background-color: #fff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+`;
 
-  const handleGenerateText = async (e) => {
-    e.preventDefault();
-    // Envoyer les données au serveur pour générer du texte
-    const response = await fetch('/generate_text', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ prompt_start: promptStart, prompt, model_api: modelApi }),
-    });
-    const data = await response.json();
-    // Traitez les données de réponse si nécessaire
-    console.log(data);
-  };
+const NavbarLink = styled.a`
+  padding: 10px;
+  text-decoration: none;
+  color: #333;
+  &:hover {
+    background-color: #ddd;
+  }
+`;
 
-  const handleUseText = async (e) => {
-    e.preventDefault();
-    // Envoyer les données au serveur pour utiliser du texte existant
-    const response = await fetch('/use_text', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ prompt2 }),
-    });
-    const data = await response.json();
-    // Traitez les données de réponse si nécessaire
-    console.log(data);
-  };
+const HeroSection = styled.div`
+  height: 100vh;
+  background-image: url('../../../../GPT4-Version/static/images/fond_index.png');
+  background-attachment: fixed;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+`;
 
-  return (
-    <MaxWidthWrapper className="relative z-20 flex flex-col items-center justify-center pb-12 pt-24 md:pb-36 md:pt-36">
-      <motion.div
-        initial={{ y: 25, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 1.25, ease: "easeInOut" }}
-        className="relative mb-6"
-      >
-        <GlowingChip>Welcome to Start Page 🚀</GlowingChip>
-      </motion.div>
-      <motion.h1
-        initial={{ y: 25, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 1.25, delay: 0.25, ease: "easeInOut" }}
-        className="mb-3 text-center text-4xl font-extrabold leading-tight text-zinc-50 sm:text-5xl sm:leading-tight md:text-6xl md:leading-tight lg:text-7xl lg:leading-tight"
-      >
-        Get Started with Your New Journey
-      </motion.h1>
-      <motion.p
-        initial={{ y: 25, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 1.25, delay: 0.5, ease: "easeInOut" }}
-        className="mb-9 max-w-2xl text-center text-lg text-zinc-400 sm:text-xl md:text-2xl"
-      >
-        Explore the features, benefits, and possibilities of our platform. Let's create something amazing together.
-      </motion.p>
-      <motion.div
-        initial={{ y: 25, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 1.25, delay: 0.75, ease: "easeInOut" }}
-        className="flex flex-col items-center gap-4 sm:flex-row"
-      >
-        <SplashButton className="flex items-center gap-2 px-6 py-3 text-xl font-semibold text-white bg-green-600 rounded-lg shadow-lg hover:bg-green-700">
-          Get Started
-          <FiArrowRight />
-        </SplashButton>
-        <GhostButton
-          onClick={() => alert("Learn more clicked!")}
-          className="flex items-center gap-2 px-6 py-3 text-xl font-semibold text-green-600 bg-white border-2 border-green-600 rounded-lg shadow-lg hover:bg-green-100"
-        >
-          Learn More
-        </GhostButton>
-      </motion.div>
-      <div className="mt-12 grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-        <FeatureCard
-          icon={<FiArrowRight size={30} />}
-          title="Feature One"
-          description="Detailed description of feature one."
-        />
-        <FeatureCard
-          icon={<FiArrowRight size={30} />}
-          title="Feature Two"
-          description="Detailed description of feature two."
-        />
-        <FeatureCard
-          icon={<FiArrowRight size={30} />}
-          title="Feature Three"
-          description="Detailed description of feature three."
-        />
-      </div>
-      <div className="w3-content w3-container w3-padding-64" id="about">
-        <h3 className="w3-center">Text Generator</h3>
-        <p className="w3-center"><em>Enter your prompt here.</em></p>
-        <div className="boxes-container">
-          <div className="container">
-            <form onSubmit={handleGenerateText}>
+const HeroText = styled.div`
+  text-align: center;
+  padding: 20px;
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
+  font-size: 2em;
+`;
+
+const Container = styled.div`
+  max-width: 800px;
+  margin: auto;
+  padding: 20px;
+`;
+
+const FormContainer = styled.div`
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  padding: 40px;
+  margin: 20px auto;
+  text-align: center;
+`;
+
+const StyledForm = styled.form`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+`;
+
+const StyledInput = styled.input`
+  padding: 10px;
+  margin-bottom: 20px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+  width: 100%;
+  box-sizing: border-box;
+`;
+
+const SubmitButton = styled.input`
+  padding: 10px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  &:hover {
+    background-color: #0056b3;
+  }
+`;
+
+const Footer = styled.footer`
+  text-align: center;
+  padding: 64px;
+  background-color: #000;
+  color: white;
+`;
+
+const Start = ({ isAuthenticated, userEmail, models }) => (
+  <div>
+    <Navbar>
+      <Link href="#home" passHref>
+        <NavbarLink>HOME</NavbarLink>
+      </Link>
+      <Link href="#about" passHref>
+        <NavbarLink>Video creation</NavbarLink>
+      </Link>
+      {isAuthenticated ? (
+        <>
+          <Link href="#" passHref>
+            <NavbarLink>{userEmail}</NavbarLink>
+          </Link>
+          <Link href="/logout" passHref>
+            <NavbarLink>Logout</NavbarLink>
+          </Link>
+        </>
+      ) : (
+        <>
+          <Link href="/login" passHref>
+            <NavbarLink>Login</NavbarLink>
+          </Link>
+          <Link href="/signup" passHref>
+            <NavbarLink>Signup</NavbarLink>
+          </Link>
+        </>
+      )}
+    </Navbar>
+
+    <HeroSection id="home">
+      <HeroText>PAROS WEBSITE</HeroText>
+    </HeroSection>
+
+    <Container id="about">
+      <h3 className="w3-center">Text Generator</h3>
+      <p className="w3-center"><em>Enter your prompt here.</em></p>
+
+      <div className="boxes-container">
+        <FormContainer>
+          {isAuthenticated ? (
+            <StyledForm action="/generate_text" method="post">
               <label htmlFor="prompt_start">Choose a prompt start:</label>
-              <select id="prompt_start" name="prompt_start" value={promptStart} onChange={(e) => setPromptStart(e.target.value)}>
+              <select id="prompt_start" name="prompt_start">
                 <option value="make me">Make me</option>
                 <option value="talk about">Talk about</option>
               </select>
+
               <br />
               <label htmlFor="prompt">Prompt:</label>
-              <input type="text" id="prompt" name="prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} required />
-              <br />
-              <label htmlFor="model_api">Choose a model:</label>
-              <select id="model_api" name="model_api" value={modelApi} onChange={(e) => setModelApi(e.target.value)} required>
-                {/* Remplacer par les modèles disponibles */}
-                <option value="model1">Model 1</option>
-                <option value="model2">Model 2</option>
+              <StyledInput type="text" id="prompt" name="prompt" required />
+              <select id="model_api" name="model_api" required>
+                {models.map((model) => (
+                  <option key={model.url} value={model.url}>{model.name}</option>
+                ))}
               </select>
-              <br />
-              <input type="submit" value="Generate text" />
-            </form>
-          </div>
-          <div className="container">
-            <form onSubmit={handleUseText}>
-              <label htmlFor="prompt2">I already have a script.</label>
-              <input type="text" id="prompt2" name="prompt2" value={prompt2} onChange={(e) => setPrompt2(e.target.value)} required />
-              <input type="submit" value="Use" />
-            </form>
-          </div>
-        </div>
-      </div>
-    </MaxWidthWrapper>
-  );
-};
+              <SubmitButton type="submit" value="Generate text" />
+            </StyledForm>
+          ) : (
+            <p className="w3-center"><em>Please sign in to use the text generation tool.</em></p>
+          )}
+        </FormContainer>
 
-const FeatureCard = ({ icon, title, description }) => (
-  <div className="p-6 bg-white rounded-lg shadow-md">
-    <div className="flex items-center justify-center w-12 h-12 mb-4 bg-green-100 rounded-full">
-      {icon}
-    </div>
-    <h3 className="mb-2 text-2xl font-bold text-zinc-800">{title}</h3>
-    <p className="text-zinc-600">{description}</p>
+        <FormContainer>
+          {isAuthenticated ? (
+            <StyledForm action="/use_text" method="post">
+              <label htmlFor="prompt2">I already have a script.</label>
+              <StyledInput type="text" id="prompt2" name="prompt2" required />
+              <SubmitButton type="submit" value="Use" />
+            </StyledForm>
+          ) : (
+            <p className="w3-center"><em>Please sign in to paste your own text here.</em></p>
+          )}
+        </FormContainer>
+      </div>
+    </Container>
+
+    <Footer>
+      <a href="#home" className="w3-button w3-light-grey">
+        <i className="fa fa-arrow-up w3-margin-right"></i>To the top
+      </a>
+      <div className="w3-xlarge w3-section">
+        <i className="fa fa-facebook-official w3-hover-opacity"></i>
+        <i className="fa fa-instagram w3-hover-opacity"></i>
+        <i className="fa fa-snapchat w3-hover-opacity"></i>
+        <i className="fa fa-pinterest-p w3-hover-opacity"></i>
+        <i className="fa fa-twitter w3-hover-opacity"></i>
+        <i className="fa fa-linkedin w3-hover-opacity"></i>
+      </div>
+      <p>Powered by <a href="https://www.w3schools.com/w3css/default.asp" title="W3.CSS" target="_blank" rel="noopener noreferrer" className="w3-hover-text-green">w3.css</a></p>
+    </Footer>
   </div>
 );
 

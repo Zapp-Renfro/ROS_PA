@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "axios": "^0.27.2",
     "class-variance-authority": "^0.7.0",
     "framer-motion": "^11.0.20",
     "mini-svg-data-uri": "^1.4.4",
@@ -18,9 +19,10 @@
     "react": "^18",
     "react-dom": "^18",
     "react-icons": "^5.0.1",
+    "react-router-dom": "^6.25.1",
     "react-use-measure": "^2.1.1",
-    "tailwind-merge": "^2.2.1",
-    "axios": "^0.27.2"
+    "styled-components": "^6.1.12",
+    "tailwind-merge": "^2.2.1"
   },
   "devDependencies": {
     "autoprefixer": "^10.0.1",
