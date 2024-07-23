@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { CornerGrid } from "../utils/CornerGrid";
 import { NavLogo } from "../navbar/NavLogo";
 import Link from "next/link";
@@ -8,9 +8,18 @@ import { SplashButton } from "../buttons/SplashButton";
 import { FiArrowLeft } from "react-icons/fi";
 import { useRouter } from "next/router";
 import { motion } from "framer-motion";
+import axios from 'axios';
 
 export const SignIn = () => {
   const router = useRouter();
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState('');
+
+  const toggleForm = () => {
+    setIsSignUp(!isSignUp);
+    setMessage('');
+  };
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-scroll bg-zinc-950 py-20">
@@ -39,11 +48,15 @@ export const SignIn = () => {
         }}
         className="relative z-10 mx-auto w-full max-w-xl p-4"
       >
-        <Heading />
+        <Heading isSignUp={isSignUp} toggleForm={toggleForm} />
 
         <SocialOptions />
         <Or />
-        <Email />
+        {isSignUp ? (
+          <SignUpForm setMessage={setMessage} setMessageType={setMessageType} />
+        ) : (
+          <SignInForm setMessage={setMessage} setMessageType={setMessageType} />
+        )}
         <Terms />
       </motion.div>
 
@@ -52,16 +65,29 @@ export const SignIn = () => {
   );
 };
 
-const Heading = () => (
+const Heading = ({ isSignUp, toggleForm }) => (
   <div>
     <NavLogo />
     <div className="mb-9 mt-6 space-y-1.5">
-      <h1 className="text-2xl font-semibold">Sign in to your account</h1>
+      <h1 className="text-2xl font-semibold">
+        {isSignUp ? "Create an account" : "Sign in to your account"}
+      </h1>
       <p className="text-zinc-400">
-        Don't have an account?{" "}
-        <Link href="#" className="text-blue-400">
-          Create one.
-        </Link>
+        {isSignUp ? (
+          <>
+            Already have an account?{" "}
+            <Link href="#" onClick={toggleForm} className="text-blue-400">
+              Sign in.
+            </Link>
+          </>
+        ) : (
+          <>
+            Don't have an account?{" "}
+            <Link href="#" onClick={toggleForm} className="text-blue-400">
+              Create one.
+            </Link>
+          </>
+        )}
       </p>
     </div>
   </div>
@@ -93,9 +119,16 @@ const Or = () => {
   );
 };
 
-const Email = () => {
+const SignInForm = ({ setMessage, setMessageType }) => {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    // Add your sign-in logic here
+    setMessage('Signed in successfully');
+    setMessageType('success');
+  };
+
   return (
-    <form onSubmit={(e) => e.preventDefault()}>
+    <form onSubmit={handleSubmit}>
       <div className="mb-3">
         <label htmlFor="email-input" className="mb-1.5 block text-zinc-400">
           Email
@@ -125,6 +158,57 @@ const Email = () => {
       </div>
       <SplashButton type="submit" className="w-full">
         Sign in
+      </SplashButton>
+    </form>
+  );
+};
+
+const SignUpForm = ({ setMessage, setMessageType }) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await axios.post('/signup', { email, password });
+      setMessage(response.data.message);
+      setMessageType('success');
+    } catch (error) {
+      setMessage(error.response.data.message);
+      setMessageType('error');
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <div className="mb-3">
+        <label htmlFor="email-input" className="mb-1.5 block text-zinc-400">
+          Email
+        </label>
+        <input
+          id="email-input"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="your.email@provider.com"
+          className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 placeholder-zinc-500 ring-1 ring-transparent transition-shadow focus:outline-0 focus:ring-blue-700"
+        />
+      </div>
+      <div className="mb-6">
+        <label htmlFor="password-input" className="mb-1.5 block text-zinc-400">
+          Password
+        </label>
+        <input
+          id="password-input"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="••••••••••••"
+          className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 placeholder-zinc-500 ring-1 ring-transparent transition-shadow focus:outline-0 focus:ring-blue-700"
+        />
+      </div>
+      <SplashButton type="submit" className="w-full">
+        Sign up
       </SplashButton>
     </form>
   );

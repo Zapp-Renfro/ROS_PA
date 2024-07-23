@@ -474,26 +474,24 @@ def logout():
 
 
 
-@app.route('/signup', methods=['GET', 'POST'])
+@app.route('/signup', methods=['POST'])
 def signup():
-    if request.method == 'POST':
-        email = request.form['email']
-        password = request.form['password']
-        hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
-        data = {
-            "email": email,
-            "password": hashed_password,
-            "created_at": 'now()'
-        }
-        try:
-            result = supabase.table('users').insert(data).execute()
-            flash("Inscription réussie. Veuillez vous connecter.", "success")
-            return redirect(url_for('login'))
-        except Exception as e:
-            logging.error(f"Error inserting user into database: {str(e)}")
-            flash("Une erreur est survenue lors de l'inscription. Veuillez réessayer.", "error")
-            return redirect(url_for('signup'))
-    return render_template('signup.html')
+    data = request.get_json()
+    email = data.get('email')
+    password = data.get('password')
+    hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
+    data = {
+        "email": email,
+        "password": hashed_password,
+        "created_at": 'now()'
+    }
+    try:
+        result = supabase.table('users').insert(data).execute()
+        return jsonify({"message": "Inscription réussie. Veuillez vous connecter."}), 200
+    except Exception as e:
+        logging.error(f"Error inserting user into database: {str(e)}")
+        return jsonify({"message": "Une erreur est survenue lors de l'inscription. Veuillez réessayer."}), 400
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
