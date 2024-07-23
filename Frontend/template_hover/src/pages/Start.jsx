@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 
 const Navbar = styled.div`
   position: fixed;
@@ -70,6 +71,15 @@ const StyledInput = styled.input`
   box-sizing: border-box;
 `;
 
+const StyledSelect = styled.select`
+  padding: 10px;
+  margin-bottom: 20px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+  width: 100%;
+  box-sizing: border-box;
+`;
+
 const SubmitButton = styled.input`
   padding: 10px;
   background-color: #007bff;
@@ -83,6 +93,19 @@ const SubmitButton = styled.input`
   }
 `;
 
+const ValidationButton = styled.button`
+  padding: 10px;
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  &:hover {
+    background-color: #218838;
+  }
+`;
+
 const Footer = styled.footer`
   text-align: center;
   padding: 64px;
@@ -90,98 +113,109 @@ const Footer = styled.footer`
   color: white;
 `;
 
-const Start = ({ isAuthenticated, userEmail, models }) => (
-  <div>
-    <Navbar>
-      <Link href="#home" passHref>
-        <NavbarLink>HOME</NavbarLink>
-      </Link>
-      <Link href="#about" passHref>
-        <NavbarLink>Video creation</NavbarLink>
-      </Link>
-      {isAuthenticated ? (
-        <>
-          <Link href="#" passHref>
-            <NavbarLink>{userEmail}</NavbarLink>
-          </Link>
-          <Link href="/logout" passHref>
-            <NavbarLink>Logout</NavbarLink>
-          </Link>
-        </>
-      ) : (
-        <>
-          <Link href="/login" passHref>
-            <NavbarLink>Login</NavbarLink>
-          </Link>
-          <Link href="/signup" passHref>
-            <NavbarLink>Signup</NavbarLink>
-          </Link>
-        </>
-      )}
-    </Navbar>
+const Start = ({ isAuthenticated, userEmail, models }) => {
+  const router = useRouter();
 
-    <HeroSection id="home">
-      <HeroText>PAROS WEBSITE</HeroText>
-    </HeroSection>
+  const handleValidate = (event) => {
+    event.preventDefault();
+    router.push('/validation-page');  // Remplacez par la route vers laquelle vous voulez rediriger
+  };
 
-    <Container id="about">
-      <h3 className="w3-center">Text Generator</h3>
-      <p className="w3-center"><em>Enter your prompt here.</em></p>
+  return (
+    <div>
+      <Navbar>
+        <Link href="#home" passHref>
+          <NavbarLink>HOME</NavbarLink>
+        </Link>
+        <Link href="#about" passHref>
+          <NavbarLink>Video creation</NavbarLink>
+        </Link>
+        {isAuthenticated ? (
+          <>
+            <Link href="#" passHref>
+              <NavbarLink>{userEmail}</NavbarLink>
+            </Link>
+            <Link href="/logout" passHref>
+              <NavbarLink>Logout</NavbarLink>
+            </Link>
+          </>
+        ) : (
+          <>
+            <Link href="/login" passHref>
+              <NavbarLink>Login</NavbarLink>
+            </Link>
+            <Link href="/signup" passHref>
+              <NavbarLink>Signup</NavbarLink>
+            </Link>
+          </>
+        )}
+      </Navbar>
 
-      <div className="boxes-container">
-        <FormContainer>
-          {isAuthenticated ? (
-            <StyledForm action="/generate_text" method="post">
-              <label htmlFor="prompt_start">Choose a prompt start:</label>
-              <select id="prompt_start" name="prompt_start">
-                <option value="make me">Make me</option>
-                <option value="talk about">Talk about</option>
-              </select>
+      <HeroSection id="home">
+        <HeroText>PAROS WEBSITE</HeroText>
+      </HeroSection>
 
-              <br />
-              <label htmlFor="prompt">Prompt:</label>
-              <StyledInput type="text" id="prompt" name="prompt" required />
-              <select id="model_api" name="model_api" required>
-                {models.map((model) => (
-                  <option key={model.url} value={model.url}>{model.name}</option>
-                ))}
-              </select>
-              <SubmitButton type="submit" value="Generate text" />
-            </StyledForm>
-          ) : (
-            <p className="w3-center"><em>Please sign in to use the text generation tool.</em></p>
-          )}
-        </FormContainer>
+      <Container id="about">
+        <h3 className="w3-center">Text Generator</h3>
+        <p className="w3-center"><em>Enter your prompt here.</em></p>
 
-        <FormContainer>
-          {isAuthenticated ? (
-            <StyledForm action="/use_text" method="post">
-              <label htmlFor="prompt2">I already have a script.</label>
-              <StyledInput type="text" id="prompt2" name="prompt2" required />
-              <SubmitButton type="submit" value="Use" />
-            </StyledForm>
-          ) : (
-            <p className="w3-center"><em>Please sign in to paste your own text here.</em></p>
-          )}
-        </FormContainer>
-      </div>
-    </Container>
+        <div className="boxes-container">
+          <FormContainer>
+            {isAuthenticated ? (
+              <StyledForm action="/generate_text" method="post">
+                <label htmlFor="prompt_start">Choose a prompt start:</label>
+                <StyledSelect id="prompt_start" name="prompt_start">
+                  <option value="make me">Make me</option>
+                  <option value="talk about">Talk about</option>
+                </StyledSelect>
 
-    <Footer>
-      <a href="#home" className="w3-button w3-light-grey">
-        <i className="fa fa-arrow-up w3-margin-right"></i>To the top
-      </a>
-      <div className="w3-xlarge w3-section">
-        <i className="fa fa-facebook-official w3-hover-opacity"></i>
-        <i className="fa fa-instagram w3-hover-opacity"></i>
-        <i className="fa fa-snapchat w3-hover-opacity"></i>
-        <i className="fa fa-pinterest-p w3-hover-opacity"></i>
-        <i className="fa fa-twitter w3-hover-opacity"></i>
-        <i className="fa fa-linkedin w3-hover-opacity"></i>
-      </div>
-      <p>Powered by <a href="https://www.w3schools.com/w3css/default.asp" title="W3.CSS" target="_blank" rel="noopener noreferrer" className="w3-hover-text-green">w3.css</a></p>
-    </Footer>
-  </div>
-);
+                <label htmlFor="prompt">Prompt:</label>
+                <StyledInput type="text" id="prompt" name="prompt" required />
+
+                <label htmlFor="model_api">Select Model:</label>
+                <StyledSelect id="model_api" name="model_api" required>
+                  {models.map((model) => (
+                    <option key={model.url} value={model.url}>{model.name}</option>
+                  ))}
+                </StyledSelect>
+                <SubmitButton type="submit" value="Generate text" />
+              </StyledForm>
+            ) : (
+              <p className="w3-center"><em>Please sign in to use the text generation tool.</em></p>
+            )}
+          </FormContainer>
+
+          <FormContainer>
+            {isAuthenticated ? (
+              <StyledForm action="/use_text" method="post">
+                <label htmlFor="prompt2">I already have a script.</label>
+                <StyledInput type="text" id="prompt2" name="prompt2" required />
+                <SubmitButton type="submit" value="Use" />
+                <ValidationButton onClick={handleValidate}>Validate</ValidationButton>
+              </StyledForm>
+            ) : (
+              <p className="w3-center"><em>Please sign in to paste your own text here.</em></p>
+            )}
+          </FormContainer>
+        </div>
+      </Container>
+
+      <Footer>
+        <a href="#home" className="w3-button w3-light-grey">
+          <i className="fa fa-arrow-up w3-margin-right"></i>To the top
+        </a>
+        <div className="w3-xlarge w3-section">
+          <i className="fa fa-facebook-official w3-hover-opacity"></i>
+          <i className="fa fa-instagram w3-hover-opacity"></i>
+          <i className="fa fa-snapchat w3-hover-opacity"></i>
+          <i className="fa fa-pinterest-p w3-hover-opacity"></i>
+          <i className="fa fa-twitter w3-hover-opacity"></i>
+          <i className="fa fa-linkedin w3-hover-opacity"></i>
+        </div>
+        <p>Powered by <a href="https://www.w3schools.com/w3css/default.asp" title="W3.CSS" target="_blank" rel="noopener noreferrer" className="w3-hover-text-green">w3.css</a></p>
+      </Footer>
+    </div>
+  );
+};
 
 export default Start;
